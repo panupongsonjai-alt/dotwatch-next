@@ -1,0 +1,120 @@
+/* dotWatch slice 1 — one stylesheet, tokens first, no overrides (old 6.1). */
+:root {
+  color-scheme: light;
+  --paper: #f3f5f4;
+  --surface: #ffffff;
+  --ink: #1a2530;
+  --muted: #5b6875;
+  --line: #d8dee2;
+  --live: #2f6fde;
+  --warn: #b7791f;
+  --off: #8a949e;
+  --font: "IBM Plex Sans Thai", "Noto Sans Thai", "Leelawadee UI", Tahoma, system-ui, sans-serif;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #12181e;
+    --surface: #1a2229;
+    --ink: #e6ecf0;
+    --muted: #9aa6b1;
+    --line: #2a343d;
+    --live: #6a9bf0;
+    --warn: #e0a743;
+    --off: #6f7a85;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 1rem/1.6 var(--font);
+  font-feature-settings: "tnum";
+}
+button, input, select { font: inherit; color: inherit; }
+code { font-size: 0.9em; background: var(--line); padding: 0.05em 0.35em; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
+
+/* top bar */
+.bar {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.75rem clamp(1rem, 4vw, 2.5rem);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.brand { font-weight: 600; letter-spacing: -0.01em; }
+.brand-lg { font-size: 1.75rem; margin-bottom: 1rem; }
+.org, .org-name { color: var(--muted); }
+.org { background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: 0.25rem 0.5rem; }
+.link { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; font-size: 0.875rem; color: var(--muted); }
+.link .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--off); }
+.link-live .dot { background: var(--live); }
+.link-reconnecting { color: var(--warn); }
+.link-reconnecting .dot { background: var(--warn); }
+.quiet { background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0.25rem; }
+.quiet:hover { color: var(--ink); }
+
+main { padding: clamp(1rem, 4vw, 2.5rem); }
+.notice { border-left: 3px solid var(--warn); padding: 0.5rem 0.75rem; background: var(--surface); margin: 0 0 1.5rem; }
+.empty { max-width: 34rem; }
+.empty h1 { font-size: 1.375rem; font-weight: 600; margin: 0 0 0.5rem; }
+.empty p { color: var(--muted); margin: 0; }
+
+/* device panels: the reading is the hero */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: 1rem;
+}
+.panel {
+  background: var(--surface);
+  border-top: 4px solid var(--live);
+  border-radius: 0 0 var(--radius) var(--radius);
+  padding: 1rem 1.25rem 0.875rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.panel.is-offline { border-top-color: var(--off); }
+.panel.is-offline .value { color: var(--muted); }
+.panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.panel-head h2 { font-size: 1rem; font-weight: 500; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.code { font-size: 0.8125rem; color: var(--muted); flex-shrink: 0; }
+
+.reading { margin: 0.25rem 0 0; display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 0.25rem; }
+.reading .value { font-size: clamp(2.75rem, 7vw, 3.5rem); font-weight: 500; line-height: 1; letter-spacing: -0.03em; }
+.reading .unit { font-size: 1.25rem; color: var(--muted); }
+.reading .label { grid-column: 1 / -1; font-size: 0.875rem; color: var(--muted); margin-top: 0.25rem; }
+.reading-none { display: block; color: var(--muted); padding: 1.1rem 0; }
+
+.minor { display: flex; flex-wrap: wrap; gap: 0.25rem 1.5rem; margin: 0; }
+.minor div { display: flex; gap: 0.4rem; align-items: baseline; }
+.minor dt { color: var(--muted); font-size: 0.875rem; }
+.minor dd { margin: 0; font-weight: 500; }
+.minor .unit { color: var(--muted); font-weight: 400; margin-left: 0.1rem; }
+
+.panel-foot { margin-top: auto; padding-top: 0.5rem; }
+/* drains from full to empty as the last reading ages toward "offline" */
+.fresh { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.fresh span { display: block; height: 100%; background: var(--live); transform-origin: left; transition: transform 1s linear; }
+.is-offline .fresh span { background: var(--off); }
+.seen { margin: 0.4rem 0 0; font-size: 0.8125rem; color: var(--muted); display: flex; gap: 0.5rem; }
+.seen strong { color: var(--ink); font-weight: 500; }
+
+/* sign in */
+.signin { min-height: 100vh; display: grid; place-items: center; }
+.signin form { width: min(22rem, 100%); display: flex; flex-direction: column; gap: 1rem; }
+.signin label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9375rem; }
+.signin input { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.55rem 0.75rem; }
+.signin button { background: var(--live); color: #fff; border: 0; border-radius: var(--radius); padding: 0.6rem; font-weight: 500; cursor: pointer; }
+.signin button:disabled { opacity: 0.6; cursor: progress; }
+.hint { font-size: 0.8125rem; color: var(--muted); margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fresh span { transition: none; }
+}
+@media (max-width: 34rem) {
+  .bar { flex-wrap: wrap; }
+  .link { margin-left: 0; order: 3; width: 100%; }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "dotwatch",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["packages/*", "services/*", "apps/*"],
+  "scripts": {
+    "db:up": "docker compose up -d db",
+    "db:migrate": "npm run migrate -w @dotwatch/api",
+    "db:seed": "npm run seed -w @dotwatch/api",
+    "dev:api": "npm run dev -w @dotwatch/api",
+    "dev:web": "npm run dev -w @dotwatch/web",
+    "simulate": "npm run simulate -w @dotwatch/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "engines": { "node": ">=20" }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.demo-device.json
+
+.demo-device.json
+config.h
+*.bak
