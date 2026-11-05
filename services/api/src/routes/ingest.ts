@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { checkReadingTime, ingestBatchSchema, type IngestResponse, type LiveValue } from "@dotwatch/shared";
 import type { Pool } from "../db/pool";
+import { withDeadlockRetry } from "../db/retry";
 import { parseDeviceAuthHeader, verifyDeviceSecret } from "../auth/deviceSecret";
 import { HttpError, unauthorized } from "../lib/errors";
 import type { Broadcaster } from "../realtime/hub";
@@ -14,6 +15,8 @@ import type { Broadcaster } from "../realtime/hub";
  * RowExclusiveLock any concurrent `update devices` holds. If that update shared a transaction with a readings
  * insert, the two would wait on each other and deadlock. The touch statement never touches `readings`,
  * so it always finishes and releases its lock.
+ * Chunk creation can still collide with a concurrent touch under load; Postgres then aborts one statement
+ * with a deadlock error, and since both statements are idempotent they are retried (db/retry.ts).
  * Broadcast happens after the database answers.
  */
 const INGEST_SQL = `
@@ -92,15 +95,19 @@ export function ingestRouter(deps: { pool: Pool; pepper: string; broadcaster: Br
 
       let accepted = 0;
       if (keys.length > 0) {
-        const { rows } = await deps.pool.query<{ inserted: number; changed: { metric: string; time: number; value: number }[] }>(
-          INGEST_SQL,
-          [device.id, keys, times, values, backfilled],
+        const { rows } = await withDeadlockRetry("ingest", () =>
+          deps.pool.query<{ inserted: number; changed: { metric: string; time: number; value: number }[] }>(
+            INGEST_SQL,
+            [device.id, keys, times, values, backfilled],
+          ),
         );
         const row = rows[0]!;
         accepted = parsed.data.readings.length - rejected.length;
         const live: LiveValue[] = row.changed.map((c) => ({ deviceId: device.id, metric: c.metric, time: Number(c.time), value: c.value }));
         deps.broadcaster.publishValues(device.org_id, live);
-        const touched = await deps.pool.query<{ last_seen: string }>(TOUCH_SQL, [device.id, parsed.data.fw ?? null]);
+        const touched = await withDeadlockRetry("touch", () =>
+          deps.pool.query<{ last_seen: string }>(TOUCH_SQL, [device.id, parsed.data.fw ?? null]),
+        );
         deps.broadcaster.publishDeviceSeen(device.org_id, device.id, Number(touched.rows[0]!.last_seen));
       }
 

@@ -1,5 +1,6 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import pg from "pg";
 import { createPool, type Pool } from "../src/db/pool";
 import { migrate } from "../src/db/migrate";
 import { createTokenVerifier } from "../src/auth/userToken";
@@ -19,14 +20,24 @@ export interface TestEnv {
 }
 
 export async function resetDatabase() {
-  const config = { DATABASE_URL: process.env.TEST_DATABASE_URL!, DB_POOL_MAX: 2, DB_CONNECTION_TIMEOUT_MS: 5000, DB_STATEMENT_TIMEOUT_MS: 30000 };
-  // Drop on one pool, migrate on a fresh one: dropping the schema also drops the timescaledb extension,
-  // but the backend keeps that version's library loaded, so re-creating it on the same connection fails
-  // with "extension timescaledb has already been loaded with another version".
-  const dropper = createPool(config);
-  await dropper.query("drop schema public cascade; create schema public;");
-  await dropper.end();
-  const pool = createPool(config);
+  // Recreate the test database from template0 instead of dropping the schema in place.
+  // Dropping and re-creating timescaledb inside one database can fail with
+  // "extension timescaledb has already been loaded with another version" (seen on Windows + Docker);
+  // a brand-new database on brand-new connections never has a stale library loaded.
+  const url = process.env.TEST_DATABASE_URL!;
+  const dbName = new URL(url).pathname.slice(1);
+  if (!dbName.includes("test")) throw new Error(`Refusing to reset "${dbName}": the database name must contain "test".`);
+  const admin = new URL(url);
+  admin.pathname = "/postgres";
+  const client = new pg.Client({ connectionString: admin.toString() });
+  await client.connect();
+  try {
+    await client.query(`drop database if exists "${dbName}" with (force)`);
+    await client.query(`create database "${dbName}" template template0`);
+  } finally {
+    await client.end();
+  }
+  const pool = createPool({ DATABASE_URL: url, DB_POOL_MAX: 2, DB_CONNECTION_TIMEOUT_MS: 5000, DB_STATEMENT_TIMEOUT_MS: 30000 });
   await migrate(pool);
   await pool.end();
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateDeviceCode, generateDeviceSecret, hashDeviceSecret, parseDeviceAuthHeader, verifyDeviceSecret } from "../src/auth/deviceSecret";
 import { loadConfig } from "../src/config";
+import { withDeadlockRetry } from "../src/db/retry";
 
 describe("device secrets", () => {
   it("verifies only the right secret with the right pepper", () => {
@@ -31,5 +32,33 @@ describe("config", () => {
   });
   it("accepts a valid production config", () => {
     expect(loadConfig({ ...base, NODE_ENV: "production", AUTH_MODE: "firebase", FIREBASE_PROJECT_ID: "p" }).AUTH_MODE).toBe("firebase");
+  });
+});
+
+describe("withDeadlockRetry", () => {
+  const noSleep = async () => undefined;
+  const pgError = (code: string) => Object.assign(new Error(code), { code });
+
+  it("retries deadlocks and returns the eventual result", async () => {
+    let calls = 0;
+    const result = await withDeadlockRetry("t", async () => {
+      calls++;
+      if (calls < 3) throw pgError("40P01");
+      return "ok";
+    }, { sleep: noSleep });
+    expect(result).toBe("ok");
+    expect(calls).toBe(3);
+  });
+
+  it("does not retry other errors", async () => {
+    let calls = 0;
+    await expect(withDeadlockRetry("t", async () => { calls++; throw pgError("23505"); }, { sleep: noSleep })).rejects.toThrow("23505");
+    expect(calls).toBe(1);
+  });
+
+  it("gives up after the attempt limit", async () => {
+    let calls = 0;
+    await expect(withDeadlockRetry("t", async () => { calls++; throw pgError("40P01"); }, { attempts: 4, sleep: noSleep })).rejects.toThrow();
+    expect(calls).toBe(4);
   });
 });
