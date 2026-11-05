@@ -1,3 +1,5 @@
+import type { AlarmEvent } from "./alarms";
+
 /** WebSocket protocol between API and web/mobile (decision 13). */
 export interface LiveValue {
   deviceId: string;
@@ -16,6 +18,7 @@ export type ServerMessage =
   | { type: "subscribed"; orgId: string }
   | { type: "values"; orgId: string; values: LiveValue[] }
   | { type: "device_seen"; orgId: string; deviceId: string; lastSeenAt: number }
+  | { type: "alarm"; orgId: string; event: AlarmEvent }
   | { type: "error"; code: "unauthorized" | "forbidden" | "bad_message"; message: string };
 
 /** Server flushes batched values at this interval. */

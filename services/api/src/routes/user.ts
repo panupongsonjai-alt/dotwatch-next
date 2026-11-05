@@ -6,6 +6,8 @@ import { bearerToken, type TokenVerifier } from "../auth/userToken";
 import { listOrganizations, resolveUser, roleInOrg, type CurrentUser } from "../auth/users";
 import { generateDeviceCode, generateDeviceSecret, hashDeviceSecret } from "../auth/deviceSecret";
 import { forbidden, HttpError, unauthorized } from "../lib/errors";
+import type { Broadcaster } from "../realtime/hub";
+import { alarmRoutes } from "./alarms";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -49,7 +51,7 @@ const createDeviceBody = z.object({
 
 const listQuery = z.object({ orgId: z.string().uuid().optional() });
 
-export function userRouter(deps: { pool: Pool; verifyToken: TokenVerifier; pepper: string }): Router {
+export function userRouter(deps: { pool: Pool; verifyToken: TokenVerifier; pepper: string; broadcaster: Broadcaster; now?: () => number }): Router {
   const router = Router();
 
   router.use(async (req: Request, _res: Response, next: NextFunction) => {
@@ -110,6 +112,8 @@ export function userRouter(deps: { pool: Pool; verifyToken: TokenVerifier; peppe
       next(err);
     }
   });
+
+  router.use(alarmRoutes(deps));
 
   router.use((_req, _res, next) => next(new HttpError(404, "not_found", "No such endpoint.")));
   return router;

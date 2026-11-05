@@ -2,6 +2,8 @@ import { Router } from "express";
 import { checkReadingTime, ingestBatchSchema, type IngestResponse, type LiveValue } from "@dotwatch/shared";
 import type { Pool } from "../db/pool";
 import { withDeadlockRetry } from "../db/retry";
+import { evaluateDeviceAlarms } from "../alarms/store";
+import { log } from "../lib/log";
 import { parseDeviceAuthHeader, verifyDeviceSecret } from "../auth/deviceSecret";
 import { HttpError, unauthorized } from "../lib/errors";
 import type { Broadcaster } from "../realtime/hub";
@@ -105,6 +107,18 @@ export function ingestRouter(deps: { pool: Pool; pepper: string; broadcaster: Br
         accepted = parsed.data.readings.length - rejected.length;
         const live: LiveValue[] = row.changed.map((c) => ({ deviceId: device.id, metric: c.metric, time: Number(c.time), value: c.value }));
         deps.broadcaster.publishValues(device.org_id, live);
+        // Alarms are evaluated after the readings are safely stored. A failure here is logged, never
+        // turned into an ingest error: the device must not resend data that is already saved (audit 3.13).
+        if (live.length > 0) {
+          try {
+            const changes = await withDeadlockRetry("alarms", () =>
+              evaluateDeviceAlarms(deps.pool, { id: device.id, orgId: device.org_id }, live),
+            );
+            for (const c of changes) deps.broadcaster.publishAlarm(device.org_id, c.event);
+          } catch (err) {
+            log.error("alarm evaluation failed", { deviceId: device.id, error: (err as Error).message });
+          }
+        }
         const touched = await withDeadlockRetry("touch", () =>
           deps.pool.query<{ last_seen: string }>(TOUCH_SQL, [device.id, parsed.data.fw ?? null]),
         );

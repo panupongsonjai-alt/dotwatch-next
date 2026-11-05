@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { z } from "zod";
-import { can, mergeLatest, REALTIME_FLUSH_MS, type LiveValue, type ServerMessage } from "@dotwatch/shared";
+import { can, mergeLatest, REALTIME_FLUSH_MS, type AlarmEvent, type LiveValue, type ServerMessage } from "@dotwatch/shared";
 import type { Pool } from "../db/pool";
 import { resolveUser, roleInOrg } from "../auth/users";
 import type { TokenVerifier } from "../auth/userToken";
@@ -11,6 +11,8 @@ import { log } from "../lib/log";
 export interface Broadcaster {
   publishValues(orgId: string, values: LiveValue[]): void;
   publishDeviceSeen(orgId: string, deviceId: string, lastSeenAt: number): void;
+  /** Sent immediately (not batched): alarms must not wait for the next flush. */
+  publishAlarm(orgId: string, event: AlarmEvent): void;
 }
 
 const clientMessage = z.discriminatedUnion("type", [
@@ -160,6 +162,11 @@ export function createRealtimeHub(deps: { pool: Pool; verifyToken: TokenVerifier
       const subs = byOrg.get(orgId);
       if (!subs) return;
       for (const s of subs) send(s, { type: "device_seen", orgId, deviceId, lastSeenAt });
+    },
+    publishAlarm(orgId, event) {
+      const subs = byOrg.get(orgId);
+      if (!subs) return;
+      for (const s of subs) send(s, { type: "alarm", orgId, event });
     },
     stats() {
       let subscriptions = 0;

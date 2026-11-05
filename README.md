@@ -82,3 +82,19 @@ test ของ API ใช้ PostgreSQL จริง ในฐานข้อม
 4. หน้าจัดการองค์กรและสมาชิก, Admin, แพ็กเกจ, Mobile, Pi agent และ OTA ใหม่
 
 ช่องทางส่งคำสั่งกลับไปที่อุปกรณ์ (`commands` ใน response ของ ingest) มีอยู่ในสัญญาแล้ว แต่ตอนนี้ยังส่งกลับเป็นรายการว่าง
+
+## Alarms (slice 2, step 1)
+
+Rules are per device + metric + severity (`warning` / `critical`): a normal range (`min`, `max` or both),
+`delaySec` before an alarm opens and `hysteresis` before it closes. They are evaluated on every reading that
+advances `latest`; older queued readings are stored but never re-open or close alarms.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/v1/devices/:id/alarm-rules` | anyone who can see the device |
+| PUT | `/v1/devices/:id/alarm-rules` `{ rules: [...] }` | member and above (replaces the whole set) |
+| GET | `/v1/alarms?state=open\|all&orgId=&deviceId=&limit=&before=` | members of the organization |
+| POST | `/v1/alarms/:id/ack` | member and above |
+
+Opened, closed and acknowledged events are pushed over WebSocket as `{ type: "alarm", orgId, event }`.
+Changing or removing a rule closes its open event (no end value), because it was judged against old limits.
