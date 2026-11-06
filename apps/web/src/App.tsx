@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import type { Me } from "@dotwatch/shared";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { can, type Me } from "@dotwatch/shared";
 import { api, ApiError } from "./lib/api";
 import { onAuthChange, signOut } from "./lib/auth";
 import { realtime, type LinkState } from "./lib/realtime";
 import { devicesReducer } from "./lib/devices";
+import { alarmsReducer, sortAlarms, worstByDevice } from "./lib/alarms";
 import { SignIn } from "./components/SignIn";
 import { DevicePanel } from "./components/DevicePanel";
+import { AlarmStrip } from "./components/AlarmStrip";
+import { AlarmRulesDialog } from "./components/AlarmRulesDialog";
 import { useNow } from "./components/useNow";
 
 export function App() {
@@ -19,8 +22,12 @@ function Monitor() {
   const [me, setMe] = useState<Me | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [devices, dispatch] = useReducer(devicesReducer, {});
+  const [openAlarms, dispatchAlarm] = useReducer(alarmsReducer, {});
+  const [rulesFor, setRulesFor] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [link, setLink] = useState<LinkState>("connecting");
+  const orgIdRef = useRef<string | null>(null);
+  orgIdRef.current = orgId;
   const now = useNow(1000);
 
   useEffect(() => {
@@ -49,12 +56,24 @@ function Monitor() {
 
   useEffect(loadDevices, [loadDevices]);
 
+  const loadAlarms = useCallback(() => {
+    if (!orgId) return;
+    dispatchAlarm({ type: "load", events: [] });
+    api.openAlarms(orgId).then(
+      (r) => dispatchAlarm({ type: "load", events: r.events }),
+      () => setLoadError("โหลดรายการแจ้งเตือนไม่สำเร็จ ระบบจะลองใหม่เมื่อเชื่อมต่อกลับมา"),
+    );
+  }, [orgId]);
+
+  useEffect(loadAlarms, [loadAlarms]);
+
   useEffect(() => {
     realtime.start();
     const offState = realtime.onState(setLink);
     const offMsg = realtime.onMessage((msg) => {
       if (msg.type === "values") dispatch({ type: "values", values: msg.values });
       if (msg.type === "device_seen") dispatch({ type: "seen", deviceId: msg.deviceId, lastSeenAt: msg.lastSeenAt });
+      if (msg.type === "alarm" && msg.orgId === orgIdRef.current) dispatchAlarm({ type: "event", event: msg.event });
     });
     return () => {
       offState();
@@ -64,6 +83,7 @@ function Monitor() {
   }, []);
 
   useEffect(() => realtime.onResync(loadDevices), [loadDevices]);
+  useEffect(() => realtime.onResync(loadAlarms), [loadAlarms]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -73,6 +93,13 @@ function Monitor() {
 
   const list = useMemo(() => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name, "th")), [devices]);
   const org = me?.organizations.find((o) => o.id === orgId);
+  const alarmList = useMemo(() => sortAlarms(Object.values(openAlarms)), [openAlarms]);
+  const worst = useMemo(() => worstByDevice(alarmList), [alarmList]);
+  const ack = useCallback(async (id: string) => {
+    const r = await api.ackAlarm(id);
+    dispatchAlarm({ type: "event", event: r.event });
+  }, []);
+  const rulesDevice = rulesFor ? devices[rulesFor] : undefined;
 
   return (
     <div className="shell">
@@ -93,6 +120,7 @@ function Monitor() {
 
       <main>
         {loadError && <p className="notice" role="alert">{loadError}</p>}
+        <AlarmStrip events={alarmList} devices={devices} now={now} canAck={can(org?.role, "alarm.ack")} onAck={ack} />
         {me && list.length === 0 && !loadError && (
           <section className="empty">
             <h1>ยังไม่มีอุปกรณ์ในองค์กรนี้</h1>
@@ -101,9 +129,17 @@ function Monitor() {
         )}
         <div className="grid">
           {list.map((d) => (
-            <DevicePanel key={d.id} device={d} now={now} />
+            <DevicePanel key={d.id} device={d} now={now} alarm={worst[d.id]} onRules={setRulesFor} />
           ))}
         </div>
+        {rulesDevice && (
+          <AlarmRulesDialog
+            key={rulesDevice.id}
+            device={rulesDevice}
+            canEdit={can(org?.role, "alarm.edit")}
+            onClose={() => setRulesFor(null)}
+          />
+        )}
       </main>
     </div>
   );
