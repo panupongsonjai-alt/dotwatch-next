@@ -1,6 +1,10 @@
-# ขึ้นระบบจริง (Render + Tiger Cloud + Firebase)
+# ขึ้นระบบจริง (Render + Tiger Cloud + Firebase) — แบบไม่เสียเงิน
 
 ทำครั้งเดียว ใช้เวลาประมาณ 30–45 นาที หลังจากนี้ทุกครั้งที่ `git push` ขึ้น `main` Render จะ build และ deploy ให้เอง
+
+ทุกอย่างใช้แพ็กเกจฟรี: Render Free (API) + Static Site (เว็บ), Tiger Cloud Free, Firebase Spark และ UptimeRobot Free
+ข้อจำกัดของฟรีคือ API จะหลับเมื่อไม่มีคนเรียก 15 นาที ขั้นที่ 5 ใช้ UptimeRobot เรียกทุก 5 นาทีเพื่อไม่ให้หลับ
+ก่อน cutover ที่มีลูกค้าจริง ควรเปลี่ยน API เป็นแพ็กเกจ Starter และ Tiger Cloud เป็นแพ็กเกจเสียเงิน
 
 ## 1. ฐานข้อมูล production (Tiger Cloud)
 
@@ -48,7 +52,16 @@ Free plan ใช้ทดลองได้ แต่ก่อน cutover คว
    npx tsx src/scripts/simulate.ts --api https://dotwatch-api.onrender.com --code <รหัส> --secret <รหัสลับ>
    ```
 
-## 5. LINE webhook (เชื่อม LINE ด้วยรหัส)
+## 5. กันไม่ให้ API หลับ (UptimeRobot ฟรี)
+
+1. สมัคร https://uptimerobot.com (Free)
+2. **New monitor** → HTTP(s) → URL `https://dotwatch-api.onrender.com/health` → ทุก 5 นาที
+3. ใส่อีเมลของคุณเป็นผู้รับแจ้ง จะได้รู้ด้วยถ้าระบบล่ม
+
+Render ให้ชั่วโมงฟรี 750 ชั่วโมงต่อเดือนต่อ workspace ซึ่ง API ตัวเดียวที่เปิดตลอดเดือนใช้ไม่เกิน 744 ชั่วโมง
+อย่าสร้าง web service ฟรีตัวอื่นใน workspace เดียวกัน ไม่อย่างนั้นชั่วโมงจะไม่พอ (static site ไม่นับ)
+
+## 6. LINE webhook (เชื่อม LINE ด้วยรหัส)
 
 LINE Developers → channel → Messaging API → **Webhook URL** = `https://dotwatch-api.onrender.com/v1/line/webhook`
 → กด Verify → เปิด **Use webhook** และปิด **Auto-reply messages** ใน LINE Official Account Manager

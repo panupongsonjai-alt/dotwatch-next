@@ -5,12 +5,14 @@ services:
     name: dotwatch-api
     runtime: node
     region: singapore
-    # Starter, not Free: a free service sleeps when idle, and then offline alarms and notifications stop.
-    plan: starter
+    # Free: sleeps after 15 minutes without inbound traffic, so an outside monitor must call /health every
+    # few minutes (docs/DEPLOY.md, step 5) or offline alarms and notifications stop while it sleeps.
+    # One service running all month (~744 h) fits Render's 750 free hours per workspace.
+    # Upgrade later by changing this to `starter` and moving the migration back to preDeployCommand.
+    plan: free
     buildCommand: npm ci --include=dev && npm run build -w @dotwatch/api
-    # Runs after the build and before traffic moves; a failed migration cancels the deploy.
-    preDeployCommand: npm run migrate:prod -w @dotwatch/api
-    startCommand: npm start -w @dotwatch/api
+    # Free services have no pre-deploy step, so migrations run at start (advisory lock, safe to repeat).
+    startCommand: npm run migrate:prod -w @dotwatch/api && npm start -w @dotwatch/api
     healthCheckPath: /health
     autoDeploy: true
     buildFilter:
