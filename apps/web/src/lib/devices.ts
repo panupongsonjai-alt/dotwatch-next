@@ -1,4 +1,7 @@
-import { OFFLINE_AFTER_MS, type Device, type LiveValue } from "@dotwatch/shared";
+import { metricMeta, OFFLINE_AFTER_MS, orderedMetrics, type Device, type LiveValue, type MetricSetting } from "@dotwatch/shared";
+
+/** A device's own metric names/units (Device.metrics); undefined = defaults only. */
+export type MetricSettings = Record<string, MetricSetting> | undefined;
 
 export type DeviceMap = Record<string, Device>;
 
@@ -56,13 +59,8 @@ export function isOffline(lastSeenAt: number | null, now: number): boolean {
   return !lastSeenAt || now - lastSeenAt > OFFLINE_AFTER_MS;
 }
 
-const METRIC_LABELS: Record<string, { label: string; unit: string; digits: number }> = {
-  temperature: { label: "อุณหภูมิ", unit: "°C", digits: 1 },
-  humidity: { label: "ความชื้น", unit: "%", digits: 0 },
-};
-
-export function formatValue(key: string, value: number): string {
-  const m = describeMetric(key);
+export function formatValue(key: string, value: number, settings?: MetricSettings): string {
+  const m = describeMetric(key, settings);
   return `${value.toFixed(m.digits)}${m.unit ? ` ${m.unit}` : ""}`;
 }
 
@@ -75,14 +73,14 @@ export function durationText(sec: number): string {
   return rest ? `${h} ชั่วโมง ${rest} นาที` : `${h} ชั่วโมง`;
 }
 
-export function describeMetric(key: string) {
-  return METRIC_LABELS[key] ?? { label: key.replace(/_/g, " "), unit: "", digits: 2 };
+export function describeMetric(key: string, settings?: MetricSettings) {
+  const m = metricMeta(settings, key);
+  return { label: m.label, unit: m.unit, digits: m.decimals };
 }
 
-/** Temperature first, then humidity, then the rest alphabetically. */
-export function orderMetrics(keys: string[]): string[] {
-  const rank = (k: string) => (k === "temperature" ? 0 : k === "humidity" ? 1 : 2);
-  return [...keys].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+/** Display order from the device's settings (temperature, humidity, then the rest by default); hidden ones dropped. */
+export function orderMetrics(keys: string[], settings?: MetricSettings, includeHidden = false): string[] {
+  return orderedMetrics(settings, keys, includeHidden);
 }
 
 export function ago(ms: number): string {

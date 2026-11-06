@@ -29,6 +29,28 @@ export async function migrate(pool: Pool, opts: { requireTimescale?: boolean } =
     for (const file of files) {
       if (done.has(file)) continue;
       const sql = readFileSync(join(dir, file), "utf8");
+      // Some TimescaleDB statements (continuous aggregates) refuse to run inside a transaction.
+      // Such files start with this marker and must be safe to re-run if interrupted halfway.
+      if (sql.includes("-- migrate:requires timescaledb")) {
+        const ts = await client.query("select 1 from pg_extension where extname = 'timescaledb'");
+        if (ts.rows.length === 0) {
+          log.info("migration skipped: needs timescaledb", { file });
+          continue; // not recorded, so it runs once TimescaleDB is there
+        }
+      }
+      if (sql.startsWith("-- migrate:no-transaction")) {
+        try {
+          for (const part of sql.split(/^-- migrate:split.*$/m)) {
+            if (part.replace(/--.*$/gm, "").trim()) await client.query(part);
+          }
+          await client.query("insert into schema_migrations (name) values ($1)", [file]);
+        } catch (err) {
+          throw new Error(`migration ${file} failed: ${(err as Error).message}`);
+        }
+        applied.push(file);
+        log.info("migration applied", { file });
+        continue;
+      }
       await client.query("begin");
       try {
         await client.query(sql);

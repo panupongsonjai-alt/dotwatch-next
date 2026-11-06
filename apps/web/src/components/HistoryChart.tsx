@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { HistoryPoint } from "@dotwatch/shared";
-import { describeMetric, formatValue } from "../lib/devices";
+import { describeMetric, formatValue, type MetricSettings } from "../lib/devices";
 import { bandPath, linePath, nearest, niceTicks, scaler, segments, timeLabel, timeTicks, yDomain, type Box } from "../lib/chart";
 
 export interface LimitLine {
@@ -15,16 +15,17 @@ interface Props {
   from: number;
   to: number;
   limits: LimitLine[];
+  settings?: MetricSettings;
 }
 
 const HEIGHT = 200;
 
 /** Average line over a min–max band, alarm limits as dashed lines, gaps where the device was silent. */
-export function HistoryChart({ metric, points, bucketMs, from, to, limits }: Props) {
+export function HistoryChart({ metric, points, bucketMs, from, to, limits, settings }: Props) {
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hoverT, setHoverT] = useState<number | null>(null);
-  const meta = describeMetric(metric);
+  const meta = describeMetric(metric, settings);
 
   useEffect(() => {
     const el = wrap.current;
@@ -54,8 +55,8 @@ export function HistoryChart({ metric, points, bucketMs, from, to, limits }: Pro
         <span className="chart-title">{meta.label}</span>
         {hover ? (
           <span className="chart-read">
-            {timeLabel(hover.t, 2 * 86_400_000)} · เฉลี่ย {formatValue(metric, hover.avg)} (ต่ำสุด{" "}
-            {formatValue(metric, hover.min)} สูงสุด {formatValue(metric, hover.max)})
+            {timeLabel(hover.t, 2 * 86_400_000)} · เฉลี่ย {formatValue(metric, hover.avg, settings)} (ต่ำสุด{" "}
+            {formatValue(metric, hover.min, settings)} สูงสุด {formatValue(metric, hover.max, settings)})
           </span>
         ) : (
           points.length > 0 && <span className="chart-read muted">ชี้บนกราฟเพื่อดูค่า</span>

@@ -49,7 +49,7 @@ describe("routes", () => {
 });
 
 describe("device list updates", () => {
-  const d: Device = { id: "d1", orgId: "o1", code: "A", name: "A", lastSeenAt: 5000, firmwareVersion: null, offlineAfterSec: 900, latest: { temperature: { time: 5000, value: 4 } } };
+  const d: Device = { id: "d1", orgId: "o1", code: "A", name: "A", lastSeenAt: 5000, firmwareVersion: null, offlineAfterSec: 900, latest: { temperature: { time: 5000, value: 4 } }, metrics: {} };
   it("keeps newer live values when the server returns an older copy", () => {
     const s = devicesReducer({ d1: d }, { type: "upsert", device: { ...d, name: "B", lastSeenAt: 1000, latest: { temperature: { time: 1000, value: 9 } } } });
     expect(s.d1).toMatchObject({ name: "B", lastSeenAt: 5000, latest: { temperature: { value: 4 } } });

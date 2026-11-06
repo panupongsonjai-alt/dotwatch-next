@@ -41,8 +41,8 @@ export function AlarmRulesDialog({ device, canEdit, onClose }: Props) {
   }, [device.id]);
 
   const metrics = useMemo(
-    () => orderMetrics([...new Set([...Object.keys(device.latest), ...(drafts ?? []).map((d) => d.metric)])]),
-    [device.latest, drafts],
+    () => orderMetrics([...new Set([...Object.keys(device.latest), ...(drafts ?? []).map((d) => d.metric)])], device.metrics, true),
+    [device.latest, device.metrics, drafts],
   );
 
   const update = (key: string, patch: Partial<RuleDraft>) => {
@@ -104,7 +104,7 @@ export function AlarmRulesDialog({ device, canEdit, onClose }: Props) {
           {drafts.length === 0 && <p className="hint">ยังไม่มีกฎสำหรับอุปกรณ์นี้</p>}
           <fieldset disabled={!canEdit || saving} className="rule-list">
             {drafts.map((d) => {
-              const unit = describeMetric(d.metric).unit;
+              const unit = describeMetric(d.metric, device.metrics).unit;
               const phase = phases[d.key];
               return (
                 <div key={d.key} className={`rule${errors[d.key] ? " has-error" : ""}`}>
@@ -112,7 +112,7 @@ export function AlarmRulesDialog({ device, canEdit, onClose }: Props) {
                     ค่าที่วัด
                     <select value={d.metric} onChange={(e) => update(d.key, { metric: e.target.value })}>
                       {metrics.map((m) => (
-                        <option key={m} value={m}>{describeMetric(m).label}</option>
+                        <option key={m} value={m}>{describeMetric(m, device.metrics).label}</option>
                       ))}
                     </select>
                   </label>

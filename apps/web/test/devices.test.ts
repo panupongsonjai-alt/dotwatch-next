@@ -3,7 +3,7 @@ import type { Device } from "@dotwatch/shared";
 import { devicesReducer, freshness, isOffline, orderMetrics } from "../src/lib/devices";
 
 const device = (over: Partial<Device> = {}): Device => ({
-  id: "d1", orgId: "o1", code: "A", name: "A", lastSeenAt: 1000, firmwareVersion: null, offlineAfterSec: 900,
+  id: "d1", orgId: "o1", code: "A", name: "A", lastSeenAt: 1000, firmwareVersion: null, offlineAfterSec: 900, metrics: {},
   latest: { temperature: { time: 1000, value: 4 } }, ...over,
 });
 
@@ -34,5 +34,16 @@ describe("display helpers", () => {
   });
   it("orders temperature, humidity, then others", () => {
     expect(orderMetrics(["pressure", "humidity", "temperature", "co2"])).toEqual(["temperature", "humidity", "co2", "pressure"]);
+  });
+});
+
+import { describeMetric, formatValue } from "../src/lib/devices";
+describe("per-device metric names", () => {
+  const settings = { ch_1: { label: "ช่อง 1", unit: "bar", decimals: 2, sortOrder: 0, hidden: false }, rssi: { label: "สัญญาณ", unit: "dBm", decimals: 0, sortOrder: 5, hidden: true } };
+  it("uses the device's label, unit, order and hides hidden metrics", () => {
+    expect(describeMetric("ch_1", settings).label).toBe("ช่อง 1");
+    expect(formatValue("ch_1", 1.5, settings)).toBe("1.50 bar");
+    expect(orderMetrics(["temperature", "rssi", "ch_1"], settings)).toEqual(["ch_1", "temperature"]);
+    expect(orderMetrics(["temperature", "rssi", "ch_1"], settings, true)).toEqual(["ch_1", "temperature", "rssi"]);
   });
 });

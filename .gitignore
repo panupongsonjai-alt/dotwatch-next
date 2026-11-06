@@ -8,3 +8,6 @@ dist/
 .demo-device.json
 config.h
 *.bak
+
+# import reports may contain device secrets
+_reports/

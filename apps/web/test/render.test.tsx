@@ -6,7 +6,7 @@ import { HistoryChart } from "../src/components/HistoryChart";
 import { DevicePanel } from "../src/components/DevicePanel";
 
 const device: Device = {
-  id: "d1", orgId: "o1", code: "DEMO-001", name: "ห้องเย็น 1", lastSeenAt: 1000, firmwareVersion: "1.0", offlineAfterSec: 900,
+  id: "d1", orgId: "o1", code: "DEMO-001", name: "ห้องเย็น 1", lastSeenAt: 1000, firmwareVersion: "1.0", offlineAfterSec: 900, metrics: {},
   latest: { temperature: { time: 1000, value: 4.07 }, humidity: { time: 1000, value: 61 } },
 };
 const offline: AlarmEvent = {

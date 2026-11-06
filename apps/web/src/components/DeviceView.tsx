@@ -10,6 +10,7 @@ import { HistoryChart, type LimitLine } from "./HistoryChart";
 import { AlarmStrip } from "./AlarmStrip";
 import { AlarmRulesDialog } from "./AlarmRulesDialog";
 import { SecretBox } from "./SecretBox";
+import { MetricSettingsEditor } from "./MetricSettingsEditor";
 
 interface Props {
   device: Device;
@@ -33,7 +34,7 @@ export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, on
   const [rules, setRules] = useState<AlarmRule[]>([]);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [past, setPast] = useState<AlarmEvent[] | null>(null);
-  const metrics = useMemo(() => orderMetrics(Object.keys(device.latest)), [device.latest]);
+  const metrics = useMemo(() => orderMetrics(Object.keys(device.latest), device.metrics), [device.latest, device.metrics]);
   const metricsKey = metrics.join(",");
   const offline = isOffline(device.lastSeenAt, now);
 
@@ -90,8 +91,8 @@ export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, on
         <dl className="dv-now">
           {metrics.map((k) => (
             <div key={k}>
-              <dt>{describeMetric(k).label}</dt>
-              <dd>{formatValue(k, device.latest[k]!.value)}</dd>
+              <dt>{describeMetric(k, device.metrics).label}</dt>
+              <dd>{formatValue(k, device.latest[k]!.value, device.metrics)}</dd>
             </div>
           ))}
         </dl>
@@ -123,6 +124,7 @@ export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, on
               from={history.from}
               to={history.to}
               limits={limitsFor(m)}
+              settings={device.metrics}
             />
           ))}
       </section>
@@ -139,12 +141,12 @@ export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, on
             {rules.map((r) => (
               <li key={r.id} className={r.enabled ? "" : "is-off"}>
                 <span className={`badge badge-${r.severity}`}>{SEVERITY_LABEL[r.severity]}</span>
-                {describeMetric(r.metric).label} ปกติ{" "}
+                {describeMetric(r.metric, device.metrics).label} ปกติ{" "}
                 {r.min !== null && r.max !== null
-                  ? `${formatValue(r.metric, r.min)} – ${formatValue(r.metric, r.max)}`
+                  ? `${formatValue(r.metric, r.min, device.metrics)} – ${formatValue(r.metric, r.max, device.metrics)}`
                   : r.max !== null
-                    ? `ไม่เกิน ${formatValue(r.metric, r.max)}`
-                    : `ไม่ต่ำกว่า ${formatValue(r.metric, r.min!)}`}
+                    ? `ไม่เกิน ${formatValue(r.metric, r.max, device.metrics)}`
+                    : `ไม่ต่ำกว่า ${formatValue(r.metric, r.min!, device.metrics)}`}
                 {r.delaySec > 0 && ` · รอ ${durationText(r.delaySec)}`}
                 {!r.enabled && " · ปิดอยู่"}
               </li>
@@ -170,7 +172,7 @@ export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, on
                 <tr key={e.id}>
                   <td>{new Date(e.startedAt).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}</td>
                   <td><span className={`badge badge-${e.severity}`}>{SEVERITY_LABEL[e.severity]}</span></td>
-                  <td>{describeAlarm(e)}</td>
+                  <td>{describeAlarm(e, device.metrics)}</td>
                   <td>{alarmDuration(e, now)}</td>
                   <td>{e.endedAt === null ? "ยังเปิดอยู่" : "ปิดแล้ว"}{e.acknowledgedAt ? " · รับทราบแล้ว" : ""}</td>
                 </tr>
@@ -307,6 +309,8 @@ function DeviceSettings({ device, role, onUpdated, onDeleted, moveTargets }: {
         <button className="secondary" disabled={busy !== null || !name.trim() || name.trim() === device.name}>บันทึกชื่อ</button>
       </form>
       {msg && <p className={msg.ok ? "hint" : "form-error"} role="status">{msg.text}</p>}
+
+      <div className="danger-row"><MetricSettingsEditor key={Object.keys(device.metrics).join()} device={device} onUpdated={onUpdated} /></div>
 
       {can(role, "device.reset_secret") && (
         <div className="danger-row">

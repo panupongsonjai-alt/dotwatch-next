@@ -1,5 +1,5 @@
 import { ALARM_LIMITS, alarmRulesBodySchema, type AlarmEvent, type AlarmRule, type AlarmRuleInput, type Severity } from "@dotwatch/shared";
-import { describeMetric, durationText, formatValue } from "./devices";
+import { describeMetric, durationText, formatValue, type MetricSettings } from "./devices";
 
 /** Open alarms of the selected organization, keyed by event id. */
 export type OpenAlarms = Record<string, AlarmEvent>;
@@ -46,10 +46,9 @@ export function worstByDevice(events: AlarmEvent[]): Record<string, Severity> {
 
 export const SEVERITY_LABEL: Record<Severity, string> = { warning: "เตือน", critical: "วิกฤต" };
 
-const fmt = formatValue;
-
 /** "สูงกว่า 4.0 °C" / "ต่ำกว่า 2.0 °C" / "นอกช่วง 2.0–8.0 °C" for the value that opened the alarm. */
-export function describeBreach(e: Pick<AlarmEvent, "metric" | "min" | "max" | "startValue">): string {
+export function describeBreach(e: Pick<AlarmEvent, "metric" | "min" | "max" | "startValue">, settings?: MetricSettings): string {
+  const fmt = (k: string, x: number) => formatValue(k, x, settings);
   const v = e.startValue;
   if (v !== null && e.max !== null && v > e.max) return `สูงกว่า ${fmt(e.metric, e.max)}`;
   if (v !== null && e.min !== null && v < e.min) return `ต่ำกว่า ${fmt(e.metric, e.min)}`;
@@ -58,9 +57,9 @@ export function describeBreach(e: Pick<AlarmEvent, "metric" | "min" | "max" | "s
 }
 
 /** One line for any alarm: "อุณหภูมิ สูงกว่า 8.0 °C" or "ขาดการติดต่อ" */
-export function describeAlarm(e: AlarmEvent): string {
+export function describeAlarm(e: AlarmEvent, settings?: MetricSettings): string {
   if (e.kind === "offline") return "ขาดการติดต่อ ไม่ส่งค่าเข้ามา";
-  return `${describeMetric(e.metric).label} ${describeBreach(e)}`;
+  return `${describeMetric(e.metric, settings).label} ${describeBreach(e, settings)}`;
 }
 
 /** "ช่วง 08:15–09:40 (1 ชั่วโมง 25 นาที)" style duration for a closed or open alarm. */

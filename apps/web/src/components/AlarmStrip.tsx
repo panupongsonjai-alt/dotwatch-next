@@ -46,8 +46,8 @@ export function AlarmStrip({ events, devices, now, canAck, onAck }: Props) {
               <div className="what">
                 <a href={deviceHref(e.deviceId)}><strong>{device?.name ?? "อุปกรณ์ที่ไม่ได้แสดง"}</strong></a>
                 <span>
-                  {describeAlarm(e)}
-                  {current && ` · ตอนนี้ ${formatValue(e.metric, current.value)}`}
+                  {describeAlarm(e, device?.metrics)}
+                  {current && ` · ตอนนี้ ${formatValue(e.metric, current.value, device?.metrics)}`}
                 </span>
               </div>
               <span className="when">{e.kind === "offline" ? "ติดต่อล่าสุด" : "เริ่ม"} {ago(now - e.startedAt)}</span>

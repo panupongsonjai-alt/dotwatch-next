@@ -234,6 +234,18 @@ main { padding: clamp(1rem, 4vw, 2.5rem); }
 .signin .link-button { background: none; color: var(--live); padding: 0; font-weight: 400; }
 .signin .link-button:hover { text-decoration: underline; }
 
+/* metric names editor */
+.metric-editor { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+.metric-editor .hint { margin: 0; }
+.metric-table { display: flex; flex-direction: column; gap: 0.35rem; overflow-x: auto; }
+.mt-head, .mt-row { display: grid; grid-template-columns: 8rem minmax(10rem, 1fr) 6rem 4.5rem 3rem 4rem; gap: 0.5rem; align-items: center; min-width: 38rem; }
+.mt-head { font-size: 0.8125rem; color: var(--muted); }
+.mt-row input:not([type="checkbox"]), .mt-row select { width: 100%; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.3rem 0.5rem; color: var(--ink); }
+.mt-row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-row.is-hidden { opacity: 0.6; }
+.mt-order { display: flex; }
+.mt-order button { padding: 0.15rem 0.35rem; }
+
 /* device page */
 .back { color: var(--muted); text-decoration: none; font-size: 0.9375rem; }
 .back:hover { color: var(--ink); }

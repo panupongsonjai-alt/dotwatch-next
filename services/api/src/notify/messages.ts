@@ -1,15 +1,4 @@
-import type { AlarmEvent } from "@dotwatch/shared";
-
-/** Thai labels for message text. Kept here so the API does not depend on the web app. */
-const METRICS: Record<string, { label: string; unit: string; digits: number }> = {
-  temperature: { label: "อุณหภูมิ", unit: "°C", digits: 1 },
-  humidity: { label: "ความชื้น", unit: "%", digits: 0 },
-};
-const metric = (k: string) => METRICS[k] ?? { label: k.replace(/_/g, " "), unit: "", digits: 2 };
-const fmt = (k: string, v: number) => {
-  const m = metric(k);
-  return `${v.toFixed(m.digits)}${m.unit ? ` ${m.unit}` : ""}`;
-};
+import { formatMetric, metricMeta, type AlarmEvent, type MetricSetting } from "@dotwatch/shared";
 
 export type Reason = "opened" | "closed" | "reminder" | "test";
 
@@ -22,6 +11,8 @@ export interface MessageContext {
   orgName: string;
   appUrl: string;
   timeZone: string;
+  /** The device's own name/unit for the alarm's metric, if set. */
+  metricSetting?: MetricSetting | null;
 }
 
 export interface Message {
@@ -40,12 +31,11 @@ function minutes(ms: number): string {
   return m % 60 ? `${h} ชม. ${m % 60} นาที` : `${h} ชม.`;
 }
 
-function what(e: AlarmEvent): string {
+function what(e: AlarmEvent, fmt: (v: number) => string, label: string): string {
   if (e.kind === "offline") return "ขาดการติดต่อ ไม่ส่งค่าเข้ามา";
-  const m = metric(e.metric).label;
-  if (e.startValue !== null && e.max !== null && e.startValue > e.max) return `${m} สูงกว่า ${fmt(e.metric, e.max)}`;
-  if (e.startValue !== null && e.min !== null && e.startValue < e.min) return `${m} ต่ำกว่า ${fmt(e.metric, e.min)}`;
-  return `${m} ออกนอกช่วงปกติ`;
+  if (e.startValue !== null && e.max !== null && e.startValue > e.max) return `${label} สูงกว่า ${fmt(e.max)}`;
+  if (e.startValue !== null && e.min !== null && e.startValue < e.min) return `${label} ต่ำกว่า ${fmt(e.min)}`;
+  return `${label} ออกนอกช่วงปกติ`;
 }
 
 /** Plain text that reads well in LINE and in email. */
@@ -57,6 +47,9 @@ export function buildMessage(c: MessageContext): Message {
     };
   }
   const e = c.event;
+  const settings = c.metricSetting ? { [e.metric]: c.metricSetting } : undefined;
+  const fmt = (v: number) => formatMetric(settings, e.metric, v);
+  const label = metricMeta(settings, e.metric).label;
   const device = c.deviceName ?? "อุปกรณ์";
   const level = e.severity === "critical" ? "วิกฤต" : "เตือน";
   const link = `${c.appUrl}/#/devices/${e.deviceId}`;
@@ -64,7 +57,7 @@ export function buildMessage(c: MessageContext): Message {
   if (c.reason === "closed") {
     const how =
       e.endValue !== null
-        ? `กลับสู่ปกติ (${metric(e.metric).label} ${fmt(e.metric, e.endValue)})`
+        ? `กลับสู่ปกติ (${label} ${fmt(e.endValue)})`
         : e.kind === "offline"
           ? "กลับมาส่งค่าแล้ว หรือปิดการแจ้งเตือนขาดการติดต่อ"
           : "ปิดแล้ว เพราะมีการแก้กฎหรือลบอุปกรณ์";
@@ -76,11 +69,11 @@ export function buildMessage(c: MessageContext): Message {
   }
 
   const icon = e.severity === "critical" ? "🔴" : "🟠";
-  const value = e.kind === "threshold" && e.startValue !== null ? ` (ค่า ${fmt(e.metric, e.startValue)})` : "";
+  const value = e.kind === "threshold" && e.startValue !== null ? ` (ค่า ${fmt(e.startValue)})` : "";
   const since = e.kind === "offline" ? `ติดต่อล่าสุด ${time(e.startedAt, c.timeZone)}` : `เริ่ม ${time(e.startedAt, c.timeZone)}`;
   const head = c.reason === "reminder" ? `⏰ ยังไม่มีผู้รับทราบ (เตือนซ้ำครั้งที่ ${c.reminderNo}/${c.maxReminders})\n` : "";
   return {
-    subject: `${icon} ${level}: ${device} — ${what(e)}`,
-    text: `${head}${icon} ${level}: ${device}\n${what(e)}${value}\n${since}\nกดรับทราบ: ${link}`,
+    subject: `${icon} ${level}: ${device} — ${what(e, fmt, label)}`,
+    text: `${head}${icon} ${level}: ${device}\n${what(e, fmt, label)}${value}\n${since}\nกดรับทราบ: ${link}`,
   };
 }

@@ -13,10 +13,10 @@ interface Props {
 
 export const DevicePanel = memo(function DevicePanel({ device, now, alarm }: Props) {
   const offline = isOffline(device.lastSeenAt, now);
-  const keys = orderMetrics(Object.keys(device.latest));
+  const keys = orderMetrics(Object.keys(device.latest), device.metrics);
   const [primaryKey, ...rest] = keys;
   const primary = primaryKey ? device.latest[primaryKey] : undefined;
-  const primaryMeta = primaryKey ? describeMetric(primaryKey) : null;
+  const primaryMeta = primaryKey ? describeMetric(primaryKey, device.metrics) : null;
   const fresh = freshness(device.lastSeenAt, now);
 
   return (
@@ -40,7 +40,7 @@ export const DevicePanel = memo(function DevicePanel({ device, now, alarm }: Pro
       {rest.length > 0 && (
         <dl className="minor">
           {rest.map((k) => {
-            const m = describeMetric(k);
+            const m = describeMetric(k, device.metrics);
             const v = device.latest[k]!;
             return (
               <div key={k}>

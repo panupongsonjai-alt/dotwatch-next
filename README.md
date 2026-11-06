@@ -83,8 +83,8 @@ test ของ API ใช้ PostgreSQL จริง ในฐานข้อม
 | ชุดที่ 1 | หน้าอุปกรณ์ + กราฟย้อนหลัง, จัดการอุปกรณ์, แจ้งเตือนขาดการติดต่อ | เสร็จ |
 | ชุดที่ 2 | ส่งแจ้งเตือน LINE OA / email, แจ้งซ้ำจนรับทราบ | เสร็จ |
 | ชุดที่ 3 | จัดการองค์กรและสมาชิก, Firebase login จริง, deploy (Render + Tiger Cloud) | เสร็จ ([วิธีขึ้นระบบ](docs/DEPLOY.md)) |
-| ชุดที่ 4 | สคริปต์ย้ายข้อมูลจากระบบเก่า (ซ้อม 2 รอบ), continuous aggregate + compression/retention | ถัดไป |
-| ชุดที่ 5 | Mobile, Pi agent, OTA, firmware บนบอร์ดจริง แล้ว cutover | |
+| ชุดที่ 4 | ย้ายข้อมูลจากระบบเก่า ([วิธีย้าย](docs/MIGRATION.md)), ชื่อ/หน่วยต่อช่อง, สรุปรายชั่วโมง + compression | เสร็จ |
+| ชุดที่ 5 | Mobile, Pi agent, OTA, firmware บนบอร์ดจริง แล้ว cutover | ถัดไป |
 
 ช่องทางส่งคำสั่งกลับไปที่อุปกรณ์ (`commands` ใน response ของ ingest) มีอยู่ในสัญญาแล้ว แต่ตอนนี้ยังส่งกลับเป็นรายการว่าง
 
@@ -125,7 +125,12 @@ is deleted. A partial unique index keeps it to one open offline event per device
 
 History returns every requested metric in one response, bucketed with `date_bin` so a chart gets at most
 about 360 points (1 min buckets for 6 h up to 6 h buckets). Each point has `avg`, `min`, `max`, `n` and
-`backfilled`. It reads `readings` directly through its primary key; continuous aggregates come with batch 4.
+`backfilled`. Ranges with buckets of an hour or more read the `readings_1h` continuous aggregate (TimescaleDB,
+migration 008, real-time so the newest hour is included); shorter ranges read `readings` through its primary key.
+Raw chunks older than 7 days are compressed. On plain PostgreSQL migration 008 is skipped and everything reads `readings`.
+
+Per-device metric names, units, decimals, order and visibility: `PUT /v1/devices/:id/metrics` (admin+), returned as
+`device.metrics` and used by the web app and by notification texts.
 
 The web app has two screens addressed by the URL hash: `#/` (all devices) and `#/devices/<id>`.
 

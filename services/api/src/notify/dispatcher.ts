@@ -62,12 +62,16 @@ returning j.id`;
 const LOAD = `
 select j.id, j.reason, j.reminder_no, j.attempts, j.retry_key, j.target_id,
        t.kind, t.address, t.enabled, o.name as org_name, o.notify_max_reminders, d.name as device_name,
+       case when ms.metric_key is null then null else
+         json_build_object('label', ms.label, 'unit', ms.unit, 'decimals', ms.decimals, 'sortOrder', ms.sort_order, 'hidden', ms.hidden)
+       end as metric_setting,
        ${EVENT_COLUMNS.split(",").map((c) => `e.${c.trim()} as e_${c.trim()}`).join(", ")}
   from notification_jobs j
   join notification_targets t on t.id = j.target_id
   join organizations o on o.id = j.org_id
   left join alarm_events e on e.id = j.event_id
   left join devices d on d.id = e.device_id
+  left join metric_settings ms on ms.device_id = e.device_id and ms.metric_key = e.metric_key
  where j.id = any($1::bigint[])
  order by j.id`;
 
@@ -98,7 +102,7 @@ export async function deliver(deps: NotifierDeps, now: number, batch = 20): Prom
 
   // One at a time keeps us well inside LINE's rate limits for a handful of recipients.
   for (const r of rows) {
-    const event = r.e_id ? toEvent(Object.fromEntries(Object.entries(r).filter(([k]) => k.startsWith("e_")).map(([k, v]) => [k.slice(2), v])) as unknown as EventRow) : null;
+    const event = r.e_id ? toEvent(Object.fromEntries(Object.entries(r).filter(([k]) => k.startsWith("e_") && k !== "e_metric_setting").map(([k, v]) => [k.slice(2), v])) as unknown as EventRow) : null;
     const message = buildMessage({
       reason: r.reason as Reason,
       reminderNo: r.reminder_no,
@@ -108,6 +112,7 @@ export async function deliver(deps: NotifierDeps, now: number, batch = 20): Prom
       orgName: r.org_name,
       appUrl: deps.appUrl,
       timeZone: deps.timeZone,
+      metricSetting: r.metric_setting,
     });
     const channel = deps.channels[r.kind as "line" | "email"];
     try {

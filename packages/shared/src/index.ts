@@ -7,3 +7,4 @@ export * from "./history";
 export * from "./devices";
 export * from "./notifications";
 export * from "./orgs";
+export * from "./metrics";

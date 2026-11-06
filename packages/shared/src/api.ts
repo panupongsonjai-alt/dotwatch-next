@@ -1,5 +1,6 @@
 import type { Role } from "./permissions";
 import type { Invitation } from "./orgs";
+import type { MetricSetting } from "./metrics";
 
 export interface Organization {
   id: string;
@@ -23,6 +24,8 @@ export interface Device {
   /** Offline alarm after this many seconds without a reading; null = off. */
   offlineAfterSec: number | null;
   latest: Record<string, MetricValue>;
+  /** Names, units and order set for this device; missing keys use defaults (see metricMeta). */
+  metrics: Record<string, MetricSetting>;
 }
 
 export interface Me {

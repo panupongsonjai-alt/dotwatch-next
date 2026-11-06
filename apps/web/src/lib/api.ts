@@ -1,7 +1,7 @@
 import type {
   AlarmEvent, AlarmRule, AlarmRuleInput, CreateDeviceInput, CreateDeviceResponse, Device, HistoryResponse, Me,
   ResetSecretResponse, UpdateDeviceInput, CreateTargetInput, NotificationSettings, NotificationTarget,
-  NotificationsResponse, UpdateTargetInput, Invitation, MembersResponse, Organization, Role,
+  NotificationsResponse, UpdateTargetInput, Invitation, MembersResponse, Organization, Role, MetricSettingsInput,
 } from "@dotwatch/shared";
 import { getToken } from "./auth";
 
@@ -77,6 +77,8 @@ export const api = {
     request<{ ok: true }>(`/v1/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`, { method: "PATCH", body: JSON.stringify({ role }) }),
   removeMember: (orgId: string, userId: string) =>
     request<null>(`/v1/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
+  saveMetrics: (id: string, metrics: MetricSettingsInput["metrics"]) =>
+    request<{ device: Device }>(`/v1/devices/${encodeURIComponent(id)}/metrics`, { method: "PUT", body: JSON.stringify({ metrics }) }),
   moveDevice: (id: string, orgId: string) =>
     request<{ device: Device }>(`/v1/devices/${encodeURIComponent(id)}/move`, { method: "POST", body: JSON.stringify({ orgId }) }),
   ackAlarm: (id: string) => request<{ event: AlarmEvent }>(`/v1/alarms/${encodeURIComponent(id)}/ack`, { method: "POST" }),

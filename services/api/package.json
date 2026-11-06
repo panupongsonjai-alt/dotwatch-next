@@ -10,6 +10,7 @@
     "migrate:prod": "node dist/migrate.js",
     "seed": "tsx src/scripts/seed.ts",
     "simulate": "tsx src/scripts/simulate.ts",
+    "legacy:import": "tsx src/scripts/legacy-import.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "build": "node build.mjs"
