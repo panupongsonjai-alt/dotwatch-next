@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 import { loadConfig } from "../config";
-import { createPool } from "../db/pool";
+import { connectionOptions, createPool } from "../db/pool";
 import { runImport, type ImportReport } from "../legacy/import";
 
 const flag = (name: string) => process.argv.includes(`--${name}`);
@@ -37,7 +37,7 @@ if (!dryRun && !flag("yes")) {
   process.exit(1);
 }
 
-const legacy = new pg.Pool({ connectionString: legacyUrl, max: 2, statement_timeout: 600_000 });
+const legacy = new pg.Pool({ ...connectionOptions(legacyUrl), max: 2, statement_timeout: 600_000 });
 const target = createPool({ ...config, DB_STATEMENT_TIMEOUT_MS: 30 * 60_000 });
 const cutoff = new Date();
 const started = Date.now();

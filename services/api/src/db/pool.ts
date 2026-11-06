@@ -8,13 +8,38 @@ pg.types.setTypeParser(20, (v) => Number(v));
 export type Pool = pg.Pool;
 
 /**
+ * SSL from the URL with libpq meaning, decided here instead of by node-postgres:
+ *   sslmode=require / prefer      → encrypted, certificate not checked (Tiger Cloud Free has a self-signed one)
+ *   sslmode=verify-ca / verify-full → encrypted and checked
+ *   none / disable                 → plain (local databases)
+ * node-postgres 8 treats "require" as "verify-full", which rejects self-signed certificates; the
+ * uselibpqcompat=true workaround is accepted too but no longer needed.
+ */
+export function connectionOptions(url: string): { connectionString: string; ssl?: pg.PoolConfig["ssl"] } {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return { connectionString: url };
+  }
+  const mode = u.searchParams.get("sslmode")?.toLowerCase();
+  u.searchParams.delete("sslmode");
+  u.searchParams.delete("uselibpqcompat");
+  const connectionString = u.toString();
+  if (!mode) return { connectionString };
+  if (mode === "disable") return { connectionString, ssl: false };
+  if (mode === "verify-full" || mode === "verify-ca") return { connectionString, ssl: { rejectUnauthorized: true } };
+  return { connectionString, ssl: { rejectUnauthorized: false } };
+}
+
+/**
  * Pool rules learned from the old system (audit 3.1):
  * every query uses pool.query() or a client released right after COMMIT,
  * nothing waits on the network while holding a client, and every wait has a timeout.
  */
 export function createPool(config: Pick<Config, "DATABASE_URL" | "DB_POOL_MAX" | "DB_CONNECTION_TIMEOUT_MS" | "DB_STATEMENT_TIMEOUT_MS">): Pool {
   const pool = new pg.Pool({
-    connectionString: config.DATABASE_URL,
+    ...connectionOptions(config.DATABASE_URL),
     max: config.DB_POOL_MAX,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: config.DB_CONNECTION_TIMEOUT_MS,

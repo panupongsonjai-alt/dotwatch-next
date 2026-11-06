@@ -62,3 +62,14 @@ describe("withDeadlockRetry", () => {
     expect(calls).toBe(4);
   });
 });
+
+import { connectionOptions } from "../src/db/pool";
+describe("database SSL from the URL", () => {
+  it("reads sslmode with libpq meaning and strips it from the URL", () => {
+    expect(connectionOptions("postgres://u:p@h:5432/tsdb?sslmode=require")).toEqual({ connectionString: "postgres://u:p@h:5432/tsdb", ssl: { rejectUnauthorized: false } });
+    expect(connectionOptions("postgres://u:p@h/tsdb?uselibpqcompat=true&sslmode=require").ssl).toEqual({ rejectUnauthorized: false });
+    expect(connectionOptions("postgres://u:p@h/db?sslmode=verify-full").ssl).toEqual({ rejectUnauthorized: true });
+    expect(connectionOptions("postgres://u:p@localhost/db")).toEqual({ connectionString: "postgres://u:p@localhost/db" });
+    expect(connectionOptions("postgres://u:p@h/db?sslmode=disable&application_name=x")).toEqual({ connectionString: "postgres://u:p@h/db?application_name=x", ssl: false });
+  });
+});
