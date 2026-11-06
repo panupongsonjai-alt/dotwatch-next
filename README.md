@@ -151,4 +151,5 @@ The web app has two screens addressed by the URL hash: `#/` (all devices) and `#
 their open sockets get `{ type: "membership", orgId }` and lose the subscription at once.
 In dev mode, sign in as `name:email` to get a token with a verified email.
 
-Deploy: [`render.yaml`](render.yaml) and [`docs/DEPLOY.md`](docs/DEPLOY.md).
+Deploy: one Render service serves the web app (apps/web/dist), `/config.js` (sign-in settings read at runtime) and
+the API at one address — [`render.yaml`](render.yaml), [`docs/DEPLOY.md`](docs/DEPLOY.md).

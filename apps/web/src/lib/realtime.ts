@@ -1,5 +1,5 @@
 import { reconnectDelayMs, type ClientMessage, type ServerMessage } from "@dotwatch/shared";
-import { API_URL } from "./api";
+import { wsUrl } from "./config";
 import { getToken } from "./auth";
 
 export type LinkState = "connecting" | "live" | "reconnecting";
@@ -87,7 +87,7 @@ class RealtimeLink {
     this.ws?.close();
     const token = await getToken();
     if (!token) return;
-    const ws = new WebSocket(`${API_URL.replace(/^http/, "ws")}/v1/ws`);
+    const ws = new WebSocket(wsUrl("/v1/ws"));
     this.ws = ws;
     ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token } satisfies ClientMessage));
     ws.onmessage = (ev) => {

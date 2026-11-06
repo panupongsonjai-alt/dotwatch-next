@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { ZodError } from "zod";
 import type { Pool } from "./db/pool";
@@ -24,6 +26,10 @@ export interface AppDeps {
   appUrl?: string;
   /** Invitation emails; defaults to writing them to the log. */
   mailer?: InviteMailer;
+  /** Built web app (apps/web/dist) to serve at "/", so web and API share one address. */
+  webDir?: string | null;
+  /** Sent to the browser as window.DOTWATCH_CONFIG by /config.js. */
+  webConfig?: { authMode: "dev" | "firebase"; firebase: { apiKey: string; authDomain: string; projectId: string } };
 }
 
 export function createApp(deps: AppDeps) {
@@ -66,6 +72,37 @@ export function createApp(deps: AppDeps) {
       mailer: deps.mailer ?? (async (to, subject, text) => log.info("invitation email (dry run)", { to, subject, text })),
     }),
   );
+
+  // One address for everything: the web app and its settings come from the API.
+  if (deps.webConfig) {
+    const body = `window.DOTWATCH_CONFIG = ${JSON.stringify(deps.webConfig)};\n`;
+    app.get("/config.js", (_req, res) => {
+      res.setHeader("content-type", "text/javascript; charset=utf-8");
+      res.setHeader("cache-control", "no-cache");
+      res.send(body);
+    });
+  }
+  if (deps.webDir && existsSync(join(deps.webDir, "index.html"))) {
+    const webDir = deps.webDir;
+    app.use((_req, res, next) => {
+      res.setHeader("x-content-type-options", "nosniff");
+      res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+      next();
+    });
+    app.use(
+      express.static(webDir, {
+        index: "index.html",
+        setHeaders: (res, path) =>
+          // Vite puts a content hash in every asset name, so assets never change; index.html must always be fresh.
+          res.setHeader("cache-control", /[\\/]assets[\\/]/.test(path) ? "public, max-age=31536000, immutable" : "no-cache"),
+      }),
+    );
+    // Screens use the URL hash, so any other page path just gets the app.
+    app.get(/^(?!\/v1\/).*/, (_req, res) => {
+      res.setHeader("cache-control", "no-cache");
+      res.sendFile(join(webDir, "index.html"));
+    });
+  }
 
   // Errors from user input never become 500 (audit 3.12).
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {

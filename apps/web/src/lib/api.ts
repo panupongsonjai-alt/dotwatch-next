@@ -5,7 +5,9 @@ import type {
 } from "@dotwatch/shared";
 import { getToken } from "./auth";
 
-export const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
+import { config } from "./config";
+
+export const API_URL = config.apiUrl;
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

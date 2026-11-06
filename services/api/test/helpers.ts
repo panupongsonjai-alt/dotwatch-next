@@ -5,7 +5,7 @@ import { createPool, type Pool } from "../src/db/pool";
 import { migrate } from "../src/db/migrate";
 import { createTokenVerifier } from "../src/auth/userToken";
 import { createRealtimeHub, type RealtimeHub } from "../src/realtime/hub";
-import { createApp } from "../src/app";
+import { createApp, type AppDeps } from "../src/app";
 import { generateDeviceSecret, hashDeviceSecret } from "../src/auth/deviceSecret";
 import { resolveUser, listOrganizations } from "../src/auth/users";
 
@@ -44,7 +44,9 @@ export async function resetDatabase() {
 
 export const LINE_SECRET = "test-line-secret";
 
-export async function startTestServer(opts: { poolMax?: number; now?: () => number } = {}): Promise<TestEnv> {
+export async function startTestServer(
+  opts: { poolMax?: number; now?: () => number; webDir?: string; webConfig?: AppDeps["webConfig"] } = {},
+): Promise<TestEnv> {
   const pool = createPool({
     DATABASE_URL: process.env.TEST_DATABASE_URL!,
     DB_POOL_MAX: opts.poolMax ?? 5,
@@ -53,7 +55,7 @@ export async function startTestServer(opts: { poolMax?: number; now?: () => numb
   });
   const verifyToken = createTokenVerifier({ AUTH_MODE: "dev", FIREBASE_PROJECT_ID: "" });
   const hub = createRealtimeHub({ pool, verifyToken });
-  const app = createApp({ pool, verifyToken, broadcaster: hub, pepper: PEPPER, corsOrigins: [], now: opts.now,
+  const app = createApp({ pool, verifyToken, broadcaster: hub, pepper: PEPPER, corsOrigins: [], now: opts.now, webDir: opts.webDir, webConfig: opts.webConfig,
     notify: { channels: { line: true, lineWebhook: true, email: false }, lineChannelSecret: LINE_SECRET, lineAccessToken: "" } });
   const server: Server = createServer(app);
   hub.attach(server);

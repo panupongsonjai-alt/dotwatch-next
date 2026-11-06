@@ -12,6 +12,9 @@ const schema = z
     DATABASE_URL: z.string().min(1),
     AUTH_MODE: z.enum(["dev", "firebase"]).default("dev"),
     FIREBASE_PROJECT_ID: z.string().default(""),
+    // Public web settings for Firebase sign-in, served to the browser at /config.js (not secrets).
+    FIREBASE_API_KEY: z.string().default(""),
+    FIREBASE_AUTH_DOMAIN: z.string().default(""),
     DEVICE_SECRET_PEPPER: z.string().min(16, "DEVICE_SECRET_PEPPER must be at least 16 characters"),
     CORS_ORIGIN: z.string().default("http://localhost:5173"),
     DB_POOL_MAX: z.coerce.number().int().min(1).default(10),
@@ -37,7 +40,8 @@ const schema = z
 export type Config = z.infer<typeof schema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = schema.safeParse(env);
+  // On Render the service's own address is known; use it for links in emails and LINE unless APP_URL is set.
+  const parsed = schema.safeParse({ APP_URL: env.RENDER_EXTERNAL_URL || undefined, ...env });
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  - ${i.path.join(".") || "config"}: ${i.message}`);
     throw new Error(`Invalid configuration:\n${lines.join("\n")}`);

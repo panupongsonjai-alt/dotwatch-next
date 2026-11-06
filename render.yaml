@@ -1,22 +1,19 @@
-# Render Blueprint (ADR 0001, decision 12): API in Singapore next to Tiger Cloud, web as a static site on the CDN.
-# Render asks for every value marked `sync: false` when the Blueprint is created. See docs/DEPLOY.md.
+# Render Blueprint: ONE service serves the web app, the API and the device endpoint at one address.
+# Free plan: sleeps after 15 minutes without traffic, so an uptime monitor calls /health every 5 minutes
+# (docs/DEPLOY.md). One service running all month fits Render's 750 free hours per workspace.
+# To upgrade later: set plan to starter.
 services:
   - type: web
+    # Kept as "dotwatch-api" so the existing service and its address stay the same.
     name: dotwatch-api
     runtime: node
     region: singapore
-    # Free: sleeps after 15 minutes without inbound traffic, so an outside monitor must call /health every
-    # few minutes (docs/DEPLOY.md, step 5) or offline alarms and notifications stop while it sleeps.
-    # One service running all month (~744 h) fits Render's 750 free hours per workspace.
-    # Upgrade later by changing this to `starter` and moving the migration back to preDeployCommand.
     plan: free
-    buildCommand: npm ci --include=dev && npm run build -w @dotwatch/api
+    buildCommand: npm ci --include=dev && npm run build -w @dotwatch/api && npm run build -w @dotwatch/web
     # Free services have no pre-deploy step, so migrations run at start (advisory lock, safe to repeat).
     startCommand: npm run migrate:prod -w @dotwatch/api && npm start -w @dotwatch/api
     healthCheckPath: /health
     autoDeploy: true
-    buildFilter:
-      paths: ["services/api/**", "packages/shared/**", "package-lock.json", "render.yaml"]
     envVars:
       - key: NODE_VERSION
         value: "22"
@@ -31,51 +28,12 @@ services:
       # Generated once by Render. Never change it: every device secret depends on it.
       - key: DEVICE_SECRET_PEPPER
         generateValue: true
+      # The only three values to fill in:
       - key: DATABASE_URL
         sync: false
       - key: FIREBASE_PROJECT_ID
         sync: false
-      - key: CORS_ORIGIN
+      - key: FIREBASE_API_KEY
         sync: false
-      - key: APP_URL
-        sync: false
-      - key: LINE_CHANNEL_ACCESS_TOKEN
-        sync: false
-      - key: LINE_CHANNEL_SECRET
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
-
-  - type: web
-    name: dotwatch-web
-    runtime: static
-    buildCommand: npm ci --include=dev && npm run build -w @dotwatch/web
-    staticPublishPath: apps/web/dist
-    autoDeploy: true
-    buildFilter:
-      paths: ["apps/web/**", "packages/shared/**", "package-lock.json", "render.yaml"]
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
-      - path: /assets/*
-        name: Cache-Control
-        value: public, max-age=31536000, immutable
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: VITE_AUTH_MODE
-        value: firebase
-      - key: VITE_API_URL
-        sync: false
-      - key: VITE_FIREBASE_API_KEY
-        sync: false
-      - key: VITE_FIREBASE_AUTH_DOMAIN
-        sync: false
-      - key: VITE_FIREBASE_PROJECT_ID
-        sync: false
+      # Optional, add in the dashboard when needed: LINE_CHANNEL_ACCESS_TOKEN, LINE_CHANNEL_SECRET,
+      # RESEND_API_KEY, EMAIL_FROM, FIREBASE_AUTH_DOMAIN (defaults to <project>.firebaseapp.com).

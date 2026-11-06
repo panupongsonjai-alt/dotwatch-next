@@ -1,5 +1,7 @@
 // Two sign-in modes behind one interface: dev (any name, optionally "name:email") and Firebase email/password (decision 6).
-const MODE = (import.meta.env.VITE_AUTH_MODE ?? "dev") as "dev" | "firebase";
+import { config } from "./config";
+
+const MODE = config.authMode;
 const DEV_KEY = "dotwatch.devUser";
 
 type Listener = (signedIn: boolean) => void;
@@ -17,11 +19,7 @@ let devFallback: string | null = null;
 async function firebaseAuth() {
   const { initializeApp } = await import("firebase/app");
   const auth = await import("firebase/auth");
-  const app = initializeApp({
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  });
+  const app = initializeApp(config.firebase);
   return { auth, instance: auth.getAuth(app) };
 }
 

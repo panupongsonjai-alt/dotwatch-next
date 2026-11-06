@@ -1,6 +1,7 @@
 // Import everything from the old dotWatch database. See docs/MIGRATION.md.
 // Usage: npm run legacy:import -- [--dry-run] [--yes] [--no-telemetry] [--include-inactive] [--window-hours 24]
-import { mkdirSync, writeFileSync } from "node:fs";
+import { MIGRATE_ENV } from "./load-migrate-env";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
 import { loadConfig } from "../config";
@@ -13,10 +14,34 @@ const num = (name: string, fallback: number) => {
   return i > 0 ? Number(process.argv[i + 1]) : fallback;
 };
 
+if (!existsSync(MIGRATE_ENV)) {
+  console.error(`ไม่พบไฟล์ services/api/${MIGRATE_ENV}: คัดลอก .env.migrate.example เป็น ${MIGRATE_ENV} แล้วใส่ค่าให้ครบ 4 ค่า`);
+  process.exit(1);
+}
 const config = loadConfig();
-const legacyUrl = process.env.LEGACY_DATABASE_URL ?? "";
+let legacyUrl = (process.env.LEGACY_DATABASE_URL ?? "").trim();
 if (!legacyUrl) {
-  console.error("Set LEGACY_DATABASE_URL (the old system's database) in services/api/.env first.");
+  console.error(`ใส่ LEGACY_DATABASE_URL ใน ${MIGRATE_ENV} ก่อน`);
+  process.exit(1);
+}
+try {
+  const u = new URL(legacyUrl);
+  // Render's "Internal Database URL" (host like dpg-abc123-a) only resolves inside Render.
+  if (/^dpg-[a-z0-9]+-a$/.test(u.hostname)) {
+    console.error("LEGACY_DATABASE_URL เป็น Internal URL ของ Render ซึ่งใช้จากเครื่องนี้ไม่ได้\nใช้ External Database URL แทน (Render → ฐานข้อมูลเก่า → Connect → External)");
+    process.exit(1);
+  }
+  // Render requires SSL from outside.
+  if (u.hostname.endsWith(".render.com") && !u.searchParams.has("sslmode")) {
+    u.searchParams.set("sslmode", "require");
+    legacyUrl = u.toString();
+  }
+} catch {
+  console.error("LEGACY_DATABASE_URL อ่านไม่ได้ ตรวจว่า copy มาครบทั้งเส้น");
+  process.exit(1);
+}
+if (config.DATABASE_URL === process.env.LEGACY_DATABASE_URL) {
+  console.error("DATABASE_URL กับ LEGACY_DATABASE_URL เป็นฐานเดียวกัน ตรวจไฟล์ .env.migrate");
   process.exit(1);
 }
 const dryRun = flag("dry-run");

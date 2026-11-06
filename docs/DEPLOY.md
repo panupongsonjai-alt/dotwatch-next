@@ -1,72 +1,38 @@
-# ขึ้นระบบจริง (Render + Tiger Cloud + Firebase) — แบบไม่เสียเงิน
+# ขึ้นระบบจริง — แบบเรียบง่ายและไม่เสียเงิน
 
-ทำครั้งเดียว ใช้เวลาประมาณ 30–45 นาที หลังจากนี้ทุกครั้งที่ `git push` ขึ้น `main` Render จะ build และ deploy ให้เอง
+ระบบทั้งหมดอยู่บน **Render service เดียว** ทั้งเว็บ, API และจุดรับข้อมูลอุปกรณ์จึงใช้ที่อยู่เดียวกัน เช่น
+`https://dotwatch-api.onrender.com`
 
-ทุกอย่างใช้แพ็กเกจฟรี: Render Free (API) + Static Site (เว็บ), Tiger Cloud Free, Firebase Spark และ UptimeRobot Free
-ข้อจำกัดของฟรีคือ API จะหลับเมื่อไม่มีคนเรียก 15 นาที ขั้นที่ 5 ใช้ UptimeRobot เรียกทุก 5 นาทีเพื่อไม่ให้หลับ
-ก่อน cutover ที่มีลูกค้าจริง ควรเปลี่ยน API เป็นแพ็กเกจ Starter และ Tiger Cloud เป็นแพ็กเกจเสียเงิน
-
-## 1. ฐานข้อมูล production (Tiger Cloud)
-
-1. ที่ Tiger Cloud สร้าง service ใหม่ชื่อ `dotwatch-prod` (TimescaleDB, region Singapore) แยกจาก `dotwatch-dev`
-2. copy connection string แล้วเปลี่ยนท้ายเป็น `?uselibpqcompat=true&sslmode=require` เหมือนตอนตั้งเครื่อง dev
-
-Free plan ใช้ทดลองได้ แต่ก่อน cutover ควรเปลี่ยนเป็นแพ็กเกจเสียเงิน เพื่อให้มี backup และ certificate ที่ตรวจได้
-
-## 2. Firebase (project เดิมของระบบเก่า)
-
-ใช้ project เดิม เพื่อให้ผู้ใช้เดิมเข้าด้วยรหัสผ่านเดิมได้ (ADR ข้อ 6)
-
-1. Firebase console → Project settings → General → Your apps → เว็บแอป → copy `apiKey`, `authDomain`, `projectId`
-2. Authentication → Sign-in method → เปิด **Email/Password**
-3. Authentication → Settings → **Authorized domains** → เพิ่มโดเมนของเว็บบน Render (ได้หลังขั้น 3 เช่น `dotwatch-web.onrender.com`)
-
-## 3. Render
-
-1. สมัคร/เข้า https://dashboard.render.com แล้วเชื่อม GitHub
-2. **New → Blueprint** → เลือก repo `dotwatch-next` → Render อ่าน `render.yaml` และสร้าง 2 service
-3. ใส่ค่าที่ Render ถาม:
-
-| Service | ตัวแปร | ค่า |
+| ใช้ทำอะไร | บริการ | ค่าใช้จ่าย |
 |---|---|---|
-| dotwatch-api | `DATABASE_URL` | connection string จากขั้น 1 |
-| | `FIREBASE_PROJECT_ID` | `projectId` จากขั้น 2 |
-| | `CORS_ORIGIN` | `https://dotwatch-web.onrender.com` (ชื่อจริงดูได้หลังสร้าง) |
-| | `APP_URL` | ค่าเดียวกับ `CORS_ORIGIN` |
-| | `LINE_*`, `RESEND_API_KEY`, `EMAIL_FROM` | เว้นว่างได้ (ส่งลง log แทน) |
-| dotwatch-web | `VITE_API_URL` | `https://dotwatch-api.onrender.com` (ชื่อจริงดูได้หลังสร้าง) |
-| | `VITE_FIREBASE_API_KEY` / `_AUTH_DOMAIN` / `_PROJECT_ID` | จากขั้น 2 |
+| โค้ด | GitHub | ฟรี |
+| เว็บ + API | Render (Free) | ฟรี |
+| ฐานข้อมูล | Tiger Cloud (Free) | ฟรี |
+| Login | Firebase (Spark, project เดิมของระบบเก่า) | ฟรี |
+| กัน API หลับ + แจ้งเมื่อระบบล่ม | UptimeRobot (Free) | ฟรี |
 
-4. ถ้าชื่อโดเมนจริงต่างจากที่ใส่ไว้ ให้แก้ใน Environment ของแต่ละ service แล้วกด **Manual Deploy**
-   ค่า `VITE_*` ฝังตอน build จึงต้อง deploy เว็บใหม่ทุกครั้งที่แก้
+## ตั้งครั้งแรก
 
-`DEVICE_SECRET_PEPPER` Render สร้างให้เอง **ห้ามเปลี่ยน** เพราะรหัสลับของทุกบอร์ดผูกกับค่านี้
+1. **Tiger Cloud:** สร้าง service `dotwatch-prod` (TimescaleDB, Free, Singapore) แล้ว copy connection string
+2. **Firebase:** Project settings → Your apps → เว็บแอป → copy `apiKey` และ `projectId` จากนั้นที่
+   Authentication → Sign-in method ให้เปิด Email/Password
+3. **Render:** New → Blueprint → repo `dotwatch-next` แล้วใส่ 3 ค่า: `DATABASE_URL`, `FIREBASE_PROJECT_ID`, `FIREBASE_API_KEY`
+4. **Firebase:** Authentication → Settings → Authorized domains → เพิ่มโดเมนของ service เช่น `dotwatch-api.onrender.com`
+5. **UptimeRobot:** HTTP(s) monitor → `https://<โดเมน>/health` → ทุก 5 นาที
 
-## 4. ตรวจ
-
-1. เปิด `https://dotwatch-api.onrender.com/health` → ต้องได้ `{"ok":true}`
-2. เปิดเว็บ → สร้างบัญชีด้วยอีเมลจริง → กดลิงก์ยืนยันในอีเมล
-3. เพิ่มอุปกรณ์ → รัน simulator จากเครื่องให้ส่งเข้า production:
-   ```powershell
-   cd services\api
-   npx tsx src/scripts/simulate.ts --api https://dotwatch-api.onrender.com --code <รหัส> --secret <รหัสลับ>
-   ```
-
-## 5. กันไม่ให้ API หลับ (UptimeRobot ฟรี)
-
-1. สมัคร https://uptimerobot.com (Free)
-2. **New monitor** → HTTP(s) → URL `https://dotwatch-api.onrender.com/health` → ทุก 5 นาที
-3. ใส่อีเมลของคุณเป็นผู้รับแจ้ง จะได้รู้ด้วยถ้าระบบล่ม
-
-Render ให้ชั่วโมงฟรี 750 ชั่วโมงต่อเดือนต่อ workspace ซึ่ง API ตัวเดียวที่เปิดตลอดเดือนใช้ไม่เกิน 744 ชั่วโมง
-อย่าสร้าง web service ฟรีตัวอื่นใน workspace เดียวกัน ไม่อย่างนั้นชั่วโมงจะไม่พอ (static site ไม่นับ)
-
-## 6. LINE webhook (เชื่อม LINE ด้วยรหัส)
-
-LINE Developers → channel → Messaging API → **Webhook URL** = `https://dotwatch-api.onrender.com/v1/line/webhook`
-→ กด Verify → เปิด **Use webhook** และปิด **Auto-reply messages** ใน LINE Official Account Manager
+ตรวจ: เปิด `https://<โดเมน>` แล้วต้องเห็นหน้า login แบบอีเมลและรหัสผ่าน
 
 ## หลังจากนี้
 
-- `git push` ขึ้น `main` = deploy อัตโนมัติ ส่วน API จะ migrate ก่อนรับ traffic และถ้า migrate ไม่ผ่าน ระบบเดิมทำงานต่อ
-- ดู log ที่ Render → dotwatch-api → Logs
+- `git push` ขึ้น `main` = deploy อัตโนมัติ (migrate ให้เองตอน start)
+- แก้ค่าใน Render → Environment → Save แล้วระบบจะ restart เอง ไม่ต้อง build ใหม่
+- `DEVICE_SECRET_PEPPER` Render สร้างให้เอง **ห้ามแก้** เพราะรหัสลับของทุกบอร์ดผูกกับค่านี้
+- บอร์ดและ Pi ส่งข้อมูลไปที่ `https://<โดเมน>/v1/ingest`
+
+## เพิ่มทีหลังเมื่อพร้อม (ไม่บังคับ)
+
+| อยากได้ | เพิ่มใน Render → Environment |
+|---|---|
+| ส่งแจ้งเตือนเข้า LINE | `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET` แล้วตั้ง Webhook URL ใน LINE Developers เป็น `https://<โดเมน>/v1/line/webhook` |
+| ส่งอีเมลแจ้งเตือนและคำเชิญ | `RESEND_API_KEY`, `EMAIL_FROM` |
+| ไม่ต้องพึ่ง UptimeRobot / มี backup | เปลี่ยน `plan: free` เป็น `starter` ใน `render.yaml` และ Tiger Cloud เป็นแพ็กเกจเสียเงิน |
