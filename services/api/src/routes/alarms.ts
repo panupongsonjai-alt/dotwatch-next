@@ -3,6 +3,7 @@ import { z } from "zod";
 import { alarmRulesBodySchema, can, isRole, type AlarmEvent } from "@dotwatch/shared";
 import type { Pool } from "../db/pool";
 import { roleInOrg } from "../auth/users";
+import { deviceAccess as lookupDevice } from "../auth/deviceAccess";
 import { forbidden, notFound } from "../lib/errors";
 import type { Broadcaster } from "../realtime/hub";
 import { EVENT_COLUMNS, listRules, replaceRules, toEvent } from "../alarms/store";
@@ -20,17 +21,7 @@ export function alarmRoutes(deps: { pool: Pool; broadcaster: Broadcaster; now?: 
   const router = Router();
   const now = deps.now ?? Date.now;
 
-  const deviceAccess = async (userId: string, deviceId: string) => {
-    const { rows } = await deps.pool.query<{ org_id: string }>(
-      "select org_id from devices where id = $1 and deleted_at is null",
-      [deviceId],
-    );
-    const device = rows[0];
-    if (!device) throw notFound("Device not found.");
-    const role = await roleInOrg(deps.pool, userId, device.org_id);
-    if (!can(role, "device.read")) throw notFound("Device not found.");
-    return { orgId: device.org_id, role };
-  };
+  const deviceAccess = (userId: string, deviceId: string) => lookupDevice(deps.pool, userId, deviceId);
 
   router.get("/devices/:id/alarm-rules", async (req, res, next) => {
     try {

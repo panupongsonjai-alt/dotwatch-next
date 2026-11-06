@@ -1,4 +1,7 @@
-import type { AlarmEvent, AlarmRule, AlarmRuleInput, Device, Me } from "@dotwatch/shared";
+import type {
+  AlarmEvent, AlarmRule, AlarmRuleInput, CreateDeviceInput, CreateDeviceResponse, Device, HistoryResponse, Me,
+  ResetSecretResponse, UpdateDeviceInput,
+} from "@dotwatch/shared";
 import { getToken } from "./auth";
 
 export const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:4000").replace(/\/$/, "");
@@ -16,7 +19,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...init.headers },
     signal: AbortSignal.timeout(20_000),
   });
-  const body = await res.json().catch(() => null);
+  const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, body?.message ?? `Request failed (${res.status})`);
   return body as T;
 }
@@ -32,5 +35,17 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ rules }),
     }),
+  deviceAlarms: (deviceId: string, limit = 20) =>
+    request<{ events: AlarmEvent[] }>(`/v1/alarms?state=all&limit=${limit}&deviceId=${encodeURIComponent(deviceId)}`),
+  createDevice: (input: CreateDeviceInput) =>
+    request<CreateDeviceResponse>("/v1/devices", { method: "POST", body: JSON.stringify(input) }),
+  updateDevice: (id: string, input: UpdateDeviceInput) =>
+    request<{ device: Device }>(`/v1/devices/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteDevice: (id: string) => request<null>(`/v1/devices/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  resetSecret: (id: string) => request<ResetSecretResponse>(`/v1/devices/${encodeURIComponent(id)}/reset-secret`, { method: "POST" }),
+  history: (id: string, metrics: string[], from: number, to: number) =>
+    request<HistoryResponse>(
+      `/v1/devices/${encodeURIComponent(id)}/history?metrics=${encodeURIComponent(metrics.join(","))}&from=${from}&to=${to}`,
+    ),
   ackAlarm: (id: string) => request<{ event: AlarmEvent }>(`/v1/alarms/${encodeURIComponent(id)}/ack`, { method: "POST" }),
 };

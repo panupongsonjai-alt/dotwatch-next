@@ -63,3 +63,30 @@ describe("realtime helpers", () => {
     expect(reconnectDelayMs(100, () => 1)).toBe(30_000);
   });
 });
+
+import { historyQuerySchema, pickBucketMs, updateDeviceSchema } from "../src/index";
+
+describe("history", () => {
+  it("keeps charts under the point budget with clock-aligned buckets", () => {
+    const h = 60 * 60 * 1000;
+    expect(pickBucketMs(0, 6 * h)).toBe(60_000);
+    expect(pickBucketMs(0, 24 * h)).toBe(5 * 60_000);
+    expect(pickBucketMs(0, 7 * 24 * h)).toBe(60 * 60_000);
+    expect(pickBucketMs(0, 30 * 24 * h)).toBe(3 * 60 * 60_000);
+    expect(pickBucketMs(0, 365 * 24 * h)).toBe(6 * 60 * 60_000);
+  });
+  it("parses a metric list and rejects bad ranges", () => {
+    expect(historyQuerySchema.parse({ metrics: "temperature, humidity,temperature", from: "1", to: "2" }).metrics).toEqual(["temperature", "humidity"]);
+    expect(historyQuerySchema.safeParse({ metrics: "temperature", from: "5", to: "2" }).success).toBe(false);
+    expect(historyQuerySchema.safeParse({ metrics: "", from: "1", to: "2" }).success).toBe(false);
+  });
+});
+
+describe("device updates", () => {
+  it("accepts a rename or an offline threshold, not nothing", () => {
+    expect(updateDeviceSchema.safeParse({ name: "ห้อง 2" }).success).toBe(true);
+    expect(updateDeviceSchema.safeParse({ offlineAfterSec: null }).success).toBe(true);
+    expect(updateDeviceSchema.safeParse({ offlineAfterSec: 30 }).success).toBe(false);
+    expect(updateDeviceSchema.safeParse({}).success).toBe(false);
+  });
+});

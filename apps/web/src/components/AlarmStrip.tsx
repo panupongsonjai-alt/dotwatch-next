@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { AlarmEvent, Device } from "@dotwatch/shared";
-import { ago, describeMetric } from "../lib/devices";
-import { describeBreach, SEVERITY_LABEL } from "../lib/alarms";
+import { ago, formatValue } from "../lib/devices";
+import { describeAlarm, SEVERITY_LABEL } from "../lib/alarms";
+import { deviceHref } from "../lib/route";
 
 interface Props {
   events: AlarmEvent[];
@@ -38,19 +39,18 @@ export function AlarmStrip({ events, devices, now, canAck, onAck }: Props) {
       <ul>
         {events.map((e) => {
           const device = devices[e.deviceId];
-          const metric = describeMetric(e.metric);
-          const current = device?.latest[e.metric];
+          const current = e.kind === "threshold" ? device?.latest[e.metric] : undefined;
           return (
             <li key={e.id} className={`alarm alarm-${e.severity}${e.acknowledgedAt ? " is-acked" : ""}`}>
               <span className="sev">{SEVERITY_LABEL[e.severity]}</span>
               <div className="what">
-                <strong>{device?.name ?? "อุปกรณ์ที่ไม่ได้แสดง"}</strong>
+                <a href={deviceHref(e.deviceId)}><strong>{device?.name ?? "อุปกรณ์ที่ไม่ได้แสดง"}</strong></a>
                 <span>
-                  {metric.label} {describeBreach(e)}
-                  {current && ` · ตอนนี้ ${current.value.toFixed(metric.digits)}${metric.unit ? ` ${metric.unit}` : ""}`}
+                  {describeAlarm(e)}
+                  {current && ` · ตอนนี้ ${formatValue(e.metric, current.value)}`}
                 </span>
               </div>
-              <span className="when">เริ่ม {ago(now - e.startedAt)}</span>
+              <span className="when">{e.kind === "offline" ? "ติดต่อล่าสุด" : "เริ่ม"} {ago(now - e.startedAt)}</span>
               {e.acknowledgedAt ? (
                 <span className="acked">รับทราบแล้ว</span>
               ) : canAck ? (

@@ -33,8 +33,13 @@ export interface AlarmRule extends AlarmLimits {
   phase: AlarmPhase;
 }
 
+/** threshold = a rule's range was crossed; offline = the device stopped reporting. */
+export const ALARM_KINDS = ["threshold", "offline"] as const;
+export type AlarmKind = (typeof ALARM_KINDS)[number];
+
 export interface AlarmEvent {
   id: string;
+  kind: AlarmKind;
   orgId: string;
   deviceId: string;
   ruleId: string | null;
@@ -42,8 +47,10 @@ export interface AlarmEvent {
   severity: Severity;
   min: number | null;
   max: number | null;
+  /** threshold: when the value left the range; offline: the device's last contact. */
   startedAt: number;
-  startValue: number;
+  /** null for offline alarms. */
+  startValue: number | null;
   endedAt: number | null;
   endValue: number | null;
   acknowledgedAt: number | null;

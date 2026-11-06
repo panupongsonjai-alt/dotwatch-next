@@ -3,7 +3,7 @@ import type { Device } from "@dotwatch/shared";
 import { devicesReducer, freshness, isOffline, orderMetrics } from "../src/lib/devices";
 
 const device = (over: Partial<Device> = {}): Device => ({
-  id: "d1", orgId: "o1", code: "A", name: "A", lastSeenAt: 1000, firmwareVersion: null,
+  id: "d1", orgId: "o1", code: "A", name: "A", lastSeenAt: 1000, firmwareVersion: null, offlineAfterSec: 900,
   latest: { temperature: { time: 1000, value: 4 } }, ...over,
 });
 

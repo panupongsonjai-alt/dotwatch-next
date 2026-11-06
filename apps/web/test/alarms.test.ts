@@ -3,7 +3,7 @@ import type { AlarmEvent, AlarmRule } from "@dotwatch/shared";
 import { alarmsReducer, blankDraft, describeBreach, draftsToInput, parseNumber, sortAlarms, toDraft, worstByDevice } from "../src/lib/alarms";
 
 const event = (over: Partial<AlarmEvent> = {}): AlarmEvent => ({
-  id: "e1", orgId: "o1", deviceId: "d1", ruleId: "r1", metric: "temperature", severity: "warning",
+  id: "e1", kind: "threshold", orgId: "o1", deviceId: "d1", ruleId: "r1", metric: "temperature", severity: "warning",
   min: 2, max: 8, startedAt: 1000, startValue: 9, endedAt: null, endValue: null, acknowledgedAt: null, acknowledgedBy: null,
   ...over,
 });
@@ -84,5 +84,13 @@ describe("rule form", () => {
     const { errors } = draftsToInput([a, b]);
     expect(errors[a.key]).toBeUndefined();
     expect(errors[b.key]?.[0]).toMatch(/ซ้ำ/);
+  });
+});
+
+import { describeAlarm } from "../src/lib/alarms";
+describe("offline alarms", () => {
+  it("describes an offline alarm without a value", () => {
+    expect(describeAlarm(event({ kind: "offline", metric: "connection", startValue: null, min: null, max: null }))).toBe("ขาดการติดต่อ ไม่ส่งค่าเข้ามา");
+    expect(describeAlarm(event())).toBe("อุณหภูมิ สูงกว่า 8.0 °C");
   });
 });

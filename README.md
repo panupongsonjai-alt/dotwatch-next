@@ -1,4 +1,4 @@
-# dotWatch (เขียนใหม่) — Slice 1
+# dotWatch (เขียนใหม่)
 
 Slice 1 พิสูจน์สถาปัตยกรรมใหม่ครบทั้งเส้นทาง:
 **บอร์ด → `POST /v1/ingest` → `readings` / `latest` → WebSocket → การ์ดบนเว็บอัปเดตเอง**
@@ -74,16 +74,21 @@ test ของ API ใช้ PostgreSQL จริง ในฐานข้อม
 ถ้า `NODE_ENV=production` แต่ตั้ง `AUTH_MODE=dev` ไว้ API จะไม่ยอม start
 ส่วน login ผ่าน Firebase บนเว็บเขียนไว้แล้ว แต่ยังไม่ได้ทดสอบกับ project จริง
 
-## สิ่งที่ slice 1 ยังไม่มี (ลำดับถัดไป)
+## สถานะ
 
-1. **Alarm + แจ้งเตือน:** ช่วงปกติ, delay, hysteresis, LINE OA, push, email และการรับทราบ
-2. **History:** continuous aggregate 5 นาที/ชั่วโมง/วัน, หน้ากราฟ, แรเงาช่วง backfill และ compression/retention policy
-3. **สคริปต์ย้ายข้อมูลจากระบบเก่า**
-4. หน้าจัดการองค์กรและสมาชิก, Admin, แพ็กเกจ, Mobile, Pi agent และ OTA ใหม่
+| ชุด | เนื้อหา | สถานะ |
+|---|---|---|
+| Slice 1 | ingest → `readings`/`latest` → WebSocket → การ์ดบนเว็บ | เสร็จ |
+| Alarm | กฎช่วงปกติ + delay + hysteresis, รับทราบ, หน้าแจ้งเตือนบนเว็บ | เสร็จ |
+| ชุดที่ 1 | หน้าอุปกรณ์ + กราฟย้อนหลัง, จัดการอุปกรณ์, แจ้งเตือนขาดการติดต่อ | เสร็จ |
+| ชุดที่ 2 | ส่งแจ้งเตือน LINE OA / email / push, แจ้งซ้ำจนรับทราบ | ถัดไป |
+| ชุดที่ 3 | จัดการองค์กรและสมาชิก, Firebase login จริง, deploy (Render + Tiger Cloud) | |
+| ชุดที่ 4 | สคริปต์ย้ายข้อมูลจากระบบเก่า (ซ้อม 2 รอบ), continuous aggregate + compression/retention | |
+| ชุดที่ 5 | Mobile, Pi agent, OTA, firmware บนบอร์ดจริง แล้ว cutover | |
 
 ช่องทางส่งคำสั่งกลับไปที่อุปกรณ์ (`commands` ใน response ของ ingest) มีอยู่ในสัญญาแล้ว แต่ตอนนี้ยังส่งกลับเป็นรายการว่าง
 
-## Alarms (slice 2, step 1)
+## Alarms
 
 Rules are per device + metric + severity (`warning` / `critical`): a normal range (`min`, `max` or both),
 `delaySec` before an alarm opens and `hysteresis` before it closes. They are evaluated on every reading that
@@ -98,3 +103,28 @@ advances `latest`; older queued readings are stored but never re-open or close a
 
 Opened, closed and acknowledged events are pushed over WebSocket as `{ type: "alarm", orgId, event }`.
 Changing or removing a rule closes its open event (no end value), because it was judged against old limits.
+
+### Offline alarms
+
+Each device has `offlineAfterSec` (default 900, `null` = off). A check every 30 s opens one `critical` event
+with `kind: "offline"` (no value; `startedAt` = last contact) for live devices silent longer than that, and
+closes it when the device reports again (immediately, from ingest), the setting is turned off, or the device
+is deleted. A partial unique index keeps it to one open offline event per device.
+
+## Devices and history
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/v1/devices?orgId=` | members |
+| POST | `/v1/devices` `{ orgId, name, code? }` → `{ device, secret }` | admin and above |
+| GET | `/v1/devices/:id` | anyone who can see the device |
+| PATCH | `/v1/devices/:id` `{ name?, offlineAfterSec? }` | name: admin+, offline setting: member+ |
+| DELETE | `/v1/devices/:id` | admin and above (soft delete; open alarms close) |
+| POST | `/v1/devices/:id/reset-secret` → `{ secret }` | admin and above |
+| GET | `/v1/devices/:id/history?metrics=a,b&from=&to=` | anyone who can see the device |
+
+History returns every requested metric in one response, bucketed with `date_bin` so a chart gets at most
+about 360 points (1 min buckets for 6 h up to 6 h buckets). Each point has `avg`, `min`, `max`, `n` and
+`backfilled`. It reads `readings` directly through its primary key; continuous aggregates come with batch 4.
+
+The web app has two screens addressed by the URL hash: `#/` (all devices) and `#/devices/<id>`.

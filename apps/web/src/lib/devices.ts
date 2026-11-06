@@ -5,7 +5,9 @@ export type DeviceMap = Record<string, Device>;
 export type DeviceAction =
   | { type: "load"; devices: Device[] }
   | { type: "values"; values: LiveValue[] }
-  | { type: "seen"; deviceId: string; lastSeenAt: number };
+  | { type: "seen"; deviceId: string; lastSeenAt: number }
+  | { type: "upsert"; device: Device }
+  | { type: "remove"; deviceId: string };
 
 export function devicesReducer(state: DeviceMap, action: DeviceAction): DeviceMap {
   switch (action.type) {
@@ -28,6 +30,19 @@ export function devicesReducer(state: DeviceMap, action: DeviceAction): DeviceMa
       if (!d || (d.lastSeenAt ?? 0) >= action.lastSeenAt) return state;
       return { ...state, [action.deviceId]: { ...d, lastSeenAt: action.lastSeenAt } };
     }
+    case "upsert": {
+      const prev = state[action.device.id];
+      // Keep live values that are newer than the copy the server just returned.
+      const latest = { ...action.device.latest };
+      for (const [k, v] of Object.entries(prev?.latest ?? {})) if (!latest[k] || latest[k]!.time < v.time) latest[k] = v;
+      const lastSeenAt = Math.max(prev?.lastSeenAt ?? 0, action.device.lastSeenAt ?? 0) || null;
+      return { ...state, [action.device.id]: { ...action.device, latest, lastSeenAt } };
+    }
+    case "remove": {
+      if (!state[action.deviceId]) return state;
+      const { [action.deviceId]: _gone, ...rest } = state;
+      return rest;
+    }
   }
 }
 
@@ -45,6 +60,20 @@ const METRIC_LABELS: Record<string, { label: string; unit: string; digits: numbe
   temperature: { label: "อุณหภูมิ", unit: "°C", digits: 1 },
   humidity: { label: "ความชื้น", unit: "%", digits: 0 },
 };
+
+export function formatValue(key: string, value: number): string {
+  const m = describeMetric(key);
+  return `${value.toFixed(m.digits)}${m.unit ? ` ${m.unit}` : ""}`;
+}
+
+/** "15 นาที", "2 ชั่วโมง", "1 ชั่วโมง 30 นาที" */
+export function durationText(sec: number): string {
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m} นาที`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest ? `${h} ชั่วโมง ${rest} นาที` : `${h} ชั่วโมง`;
+}
 
 export function describeMetric(key: string) {
   return METRIC_LABELS[key] ?? { label: key.replace(/_/g, " "), unit: "", digits: 2 };

@@ -1,5 +1,5 @@
 import { ALARM_LIMITS, alarmRulesBodySchema, type AlarmEvent, type AlarmRule, type AlarmRuleInput, type Severity } from "@dotwatch/shared";
-import { describeMetric } from "./devices";
+import { describeMetric, durationText, formatValue } from "./devices";
 
 /** Open alarms of the selected organization, keyed by event id. */
 export type OpenAlarms = Record<string, AlarmEvent>;
@@ -46,17 +46,26 @@ export function worstByDevice(events: AlarmEvent[]): Record<string, Severity> {
 
 export const SEVERITY_LABEL: Record<Severity, string> = { warning: "เตือน", critical: "วิกฤต" };
 
-function fmt(metric: string, value: number): string {
-  const m = describeMetric(metric);
-  return `${value.toFixed(m.digits)}${m.unit ? ` ${m.unit}` : ""}`;
-}
+const fmt = formatValue;
 
 /** "สูงกว่า 4.0 °C" / "ต่ำกว่า 2.0 °C" / "นอกช่วง 2.0–8.0 °C" for the value that opened the alarm. */
 export function describeBreach(e: Pick<AlarmEvent, "metric" | "min" | "max" | "startValue">): string {
-  if (e.max !== null && e.startValue > e.max) return `สูงกว่า ${fmt(e.metric, e.max)}`;
-  if (e.min !== null && e.startValue < e.min) return `ต่ำกว่า ${fmt(e.metric, e.min)}`;
+  const v = e.startValue;
+  if (v !== null && e.max !== null && v > e.max) return `สูงกว่า ${fmt(e.metric, e.max)}`;
+  if (v !== null && e.min !== null && v < e.min) return `ต่ำกว่า ${fmt(e.metric, e.min)}`;
   if (e.min !== null && e.max !== null) return `นอกช่วง ${fmt(e.metric, e.min)} – ${fmt(e.metric, e.max)}`;
   return "ออกนอกช่วงปกติ";
+}
+
+/** One line for any alarm: "อุณหภูมิ สูงกว่า 8.0 °C" or "ขาดการติดต่อ" */
+export function describeAlarm(e: AlarmEvent): string {
+  if (e.kind === "offline") return "ขาดการติดต่อ ไม่ส่งค่าเข้ามา";
+  return `${describeMetric(e.metric).label} ${describeBreach(e)}`;
+}
+
+/** "ช่วง 08:15–09:40 (1 ชั่วโมง 25 นาที)" style duration for a closed or open alarm. */
+export function alarmDuration(e: AlarmEvent, now: number): string {
+  return durationText(Math.max(60, ((e.endedAt ?? now) - e.startedAt) / 1000));
 }
 
 /* ---------- rule editor form ---------- */

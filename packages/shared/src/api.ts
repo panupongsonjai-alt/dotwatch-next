@@ -19,6 +19,8 @@ export interface Device {
   name: string;
   lastSeenAt: number | null;
   firmwareVersion: string | null;
+  /** Offline alarm after this many seconds without a reading; null = off. */
+  offlineAfterSec: number | null;
   latest: Record<string, MetricValue>;
 }
 

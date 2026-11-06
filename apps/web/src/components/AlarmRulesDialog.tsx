@@ -85,7 +85,7 @@ export function AlarmRulesDialog({ device, canEdit, onClose }: Props) {
   }
 
   return (
-    <dialog ref={ref} className="rules" onClose={onClose} aria-labelledby="rules-title">
+    <dialog ref={ref} className="modal rules" onClose={onClose} aria-labelledby="rules-title">
       <header>
         <h2 id="rules-title">กฎแจ้งเตือน · {device.name}</h2>
         <button className="quiet" onClick={() => ref.current?.close()} aria-label="ปิด">✕</button>

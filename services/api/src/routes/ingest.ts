@@ -3,6 +3,7 @@ import { checkReadingTime, ingestBatchSchema, type IngestResponse, type LiveValu
 import type { Pool } from "../db/pool";
 import { withDeadlockRetry } from "../db/retry";
 import { evaluateDeviceAlarms } from "../alarms/store";
+import { closeOfflineOnReport } from "../alarms/offline";
 import { log } from "../lib/log";
 import { parseDeviceAuthHeader, verifyDeviceSecret } from "../auth/deviceSecret";
 import { HttpError, unauthorized } from "../lib/errors";
@@ -122,7 +123,13 @@ export function ingestRouter(deps: { pool: Pool; pepper: string; broadcaster: Br
         const touched = await withDeadlockRetry("touch", () =>
           deps.pool.query<{ last_seen: string }>(TOUCH_SQL, [device.id, parsed.data.fw ?? null]),
         );
-        deps.broadcaster.publishDeviceSeen(device.org_id, device.id, Number(touched.rows[0]!.last_seen));
+        const seenAt = Number(touched.rows[0]!.last_seen);
+        deps.broadcaster.publishDeviceSeen(device.org_id, device.id, seenAt);
+        try {
+          for (const e of await closeOfflineOnReport(deps.pool, device.id, seenAt)) deps.broadcaster.publishAlarm(device.org_id, e);
+        } catch (err) {
+          log.error("closing offline alarm failed", { deviceId: device.id, error: (err as Error).message });
+        }
       }
 
       const body: IngestResponse = { ok: true, accepted, rejected, serverTime: at, commands: [] };

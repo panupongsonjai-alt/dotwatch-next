@@ -2,16 +2,16 @@ import { memo } from "react";
 import type { Device, Severity } from "@dotwatch/shared";
 import { ago, describeMetric, freshness, isOffline, orderMetrics } from "../lib/devices";
 import { SEVERITY_LABEL } from "../lib/alarms";
+import { deviceHref } from "../lib/route";
 
 interface Props {
   device: Device;
   now: number;
   /** Most severe open alarm on this device, if any. */
   alarm?: Severity;
-  onRules: (deviceId: string) => void;
 }
 
-export const DevicePanel = memo(function DevicePanel({ device, now, alarm, onRules }: Props) {
+export const DevicePanel = memo(function DevicePanel({ device, now, alarm }: Props) {
   const offline = isOffline(device.lastSeenAt, now);
   const keys = orderMetrics(Object.keys(device.latest));
   const [primaryKey, ...rest] = keys;
@@ -20,6 +20,7 @@ export const DevicePanel = memo(function DevicePanel({ device, now, alarm, onRul
   const fresh = freshness(device.lastSeenAt, now);
 
   return (
+    <a className="panel-link" href={deviceHref(device.id)}>
     <article className={`panel${offline ? " is-offline" : ""}${alarm ? ` has-${alarm}` : ""}`} aria-label={device.name}>
       <header className="panel-head">
         <h2>{device.name}</h2>
@@ -58,9 +59,9 @@ export const DevicePanel = memo(function DevicePanel({ device, now, alarm, onRul
         <p className="seen">
           {offline && <strong>ออฟไลน์</strong>}
           <span>{device.lastSeenAt ? `ส่งค่าล่าสุด ${ago(now - device.lastSeenAt)}` : "ยังไม่เคยส่งค่า"}</span>
-          <button className="link-btn" onClick={() => onRules(device.id)}>กฎแจ้งเตือน</button>
         </p>
       </footer>
     </article>
+    </a>
   );
 });

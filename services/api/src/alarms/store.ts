@@ -1,4 +1,4 @@
-import { evaluateAlarm, type AlarmEvent, type AlarmPhase, type AlarmRule, type AlarmRuleInput, type Severity } from "@dotwatch/shared";
+import { evaluateAlarm, type AlarmEvent, type AlarmKind, type AlarmPhase, type AlarmRule, type AlarmRuleInput, type Severity } from "@dotwatch/shared";
 import { withTransaction, type Pool } from "../db/pool";
 import type pg from "pg";
 
@@ -17,8 +17,9 @@ interface RuleRow {
   last_eval_time: Date | null;
 }
 
-interface EventRow {
+export interface EventRow {
   id: string;
+  kind: AlarmKind;
   org_id: string;
   device_id: string;
   rule_id: string | null;
@@ -27,7 +28,7 @@ interface EventRow {
   min_value: number | null;
   max_value: number | null;
   started_at: Date;
-  start_value: number;
+  start_value: number | null;
   ended_at: Date | null;
   end_value: number | null;
   acknowledged_at: Date | null;
@@ -35,7 +36,7 @@ interface EventRow {
 }
 
 const RULE_COLUMNS = `id, device_id, metric_key, severity, min_value, max_value, delay_seconds, hysteresis, enabled, phase, phase_since, last_eval_time`;
-export const EVENT_COLUMNS = `id, org_id, device_id, rule_id, metric_key, severity, min_value, max_value, started_at, start_value,
+export const EVENT_COLUMNS = `id, kind, org_id, device_id, rule_id, metric_key, severity, min_value, max_value, started_at, start_value,
   ended_at, end_value, acknowledged_at, acknowledged_by`;
 
 export const toRule = (r: RuleRow): AlarmRule => ({
@@ -53,6 +54,7 @@ export const toRule = (r: RuleRow): AlarmRule => ({
 
 export const toEvent = (r: EventRow): AlarmEvent => ({
   id: r.id,
+  kind: r.kind,
   orgId: r.org_id,
   deviceId: r.device_id,
   ruleId: r.rule_id,
@@ -200,4 +202,13 @@ export async function replaceRules(
     );
     return { rules: rows.map(toRule), closed };
   });
+}
+
+/** Closes every open alarm of a device (used when the device is deleted). */
+export async function closeDeviceEvents(pool: Pool, deviceId: string, now: number): Promise<AlarmEvent[]> {
+  const { rows } = await pool.query<EventRow>(
+    `update alarm_events set ended_at = $2 where device_id = $1 and ended_at is null returning ${EVENT_COLUMNS}`,
+    [deviceId, new Date(now)],
+  );
+  return rows.map(toEvent);
 }
