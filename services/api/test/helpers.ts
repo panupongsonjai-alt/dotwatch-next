@@ -74,7 +74,7 @@ export async function startTestServer(opts: { poolMax?: number; now?: () => numb
 
 /** Creates (or reuses) a dev user and returns its personal org. */
 export async function userWithOrg(pool: Pool, uid: string) {
-  const user = await resolveUser(pool, { uid, email: `${uid}@test.local`, name: uid });
+  const user = await resolveUser(pool, { uid, email: `${uid}@test.local`, name: uid, emailVerified: true });
   const org = (await listOrganizations(pool, user.id))[0]!;
   return { user, org, token: `dev:${uid}` };
 }

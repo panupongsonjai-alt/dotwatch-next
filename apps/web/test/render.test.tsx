@@ -36,3 +36,29 @@ describe("render", () => {
     expect(renderToStaticMarkup(<DevicePanel device={device} now={2000} />)).toContain('href="#/devices/d1"');
   });
 });
+
+import { Invitations } from "../src/components/Invitations";
+import { OrgPage } from "../src/components/OrgPage";
+import type { Me } from "@dotwatch/shared";
+
+describe("organization screens", () => {
+  const me: Me = {
+    id: "u1", email: "mike@example.com", displayName: "Mike", emailVerified: false,
+    organizations: [{ id: "o1", name: "ส่วนตัว", personal: true, role: "owner" }],
+    invitations: [{ id: "i1", orgId: "o2", orgName: "บริษัทห้องเย็น", email: "mike@example.com", role: "member", invitedBy: "Olivia", createdAt: 0, expiresAt: 1 }],
+  };
+  it("asks to verify the email before an invitation can be accepted", () => {
+    const html = renderToStaticMarkup(<Invitations me={me} onJoined={noop} onChanged={noop} />);
+    expect(html).toContain("ยืนยันอีเมล");
+    expect(html).toContain("Olivia เชิญคุณเข้าร่วม <strong>บริษัทห้องเย็น</strong> ในบทบาทสมาชิก");
+    expect(html).toMatch(/<button class="primary" disabled="">รับคำเชิญ/);
+    expect(renderToStaticMarkup(<Invitations me={{ ...me, invitations: [] }} onJoined={noop} onChanged={noop} />)).toBe("");
+  });
+  it("hides delete and leave for a personal organization", () => {
+    const html = renderToStaticMarkup(<OrgPage me={me} org={me.organizations[0]!} onChanged={noop} onSwitch={noop} />);
+    expect(html).toContain("สร้างองค์กรใหม่");
+    expect(html).not.toContain('class="danger"');
+    expect(html).not.toContain("ออกจากองค์กร");
+    expect(html).toContain("เชิญด้วยอีเมล");
+  });
+});

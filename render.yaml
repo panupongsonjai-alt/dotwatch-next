@@ -1,0 +1,79 @@
+# Render Blueprint (ADR 0001, decision 12): API in Singapore next to Tiger Cloud, web as a static site on the CDN.
+# Render asks for every value marked `sync: false` when the Blueprint is created. See docs/DEPLOY.md.
+services:
+  - type: web
+    name: dotwatch-api
+    runtime: node
+    region: singapore
+    # Starter, not Free: a free service sleeps when idle, and then offline alarms and notifications stop.
+    plan: starter
+    buildCommand: npm ci --include=dev && npm run build -w @dotwatch/api
+    # Runs after the build and before traffic moves; a failed migration cancels the deploy.
+    preDeployCommand: npm run migrate:prod -w @dotwatch/api
+    startCommand: npm start -w @dotwatch/api
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths: ["services/api/**", "packages/shared/**", "package-lock.json", "render.yaml"]
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_MODE
+        value: firebase
+      - key: REQUIRE_TIMESCALE
+        value: "true"
+      - key: APP_TIMEZONE
+        value: Asia/Bangkok
+      # Generated once by Render. Never change it: every device secret depends on it.
+      - key: DEVICE_SECRET_PEPPER
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+
+  - type: web
+    name: dotwatch-web
+    runtime: static
+    buildCommand: npm ci --include=dev && npm run build -w @dotwatch/web
+    staticPublishPath: apps/web/dist
+    autoDeploy: true
+    buildFilter:
+      paths: ["apps/web/**", "packages/shared/**", "package-lock.json", "render.yaml"]
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_AUTH_MODE
+        value: firebase
+      - key: VITE_API_URL
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false

@@ -7,6 +7,7 @@ import { ingestRouter } from "./routes/ingest";
 import { userRouter } from "./routes/user";
 import { lineWebhook } from "./notify/lineWebhook";
 import type { ChannelStatus } from "@dotwatch/shared";
+import type { InviteMailer } from "./routes/orgs";
 import { HttpError } from "./lib/errors";
 import { log } from "./lib/log";
 
@@ -19,6 +20,10 @@ export interface AppDeps {
   now?: () => number;
   /** What the notification channels can do; secrets for the LINE webhook. */
   notify?: { channels: ChannelStatus; lineChannelSecret: string; lineAccessToken: string };
+  /** Web app address, used in emails. */
+  appUrl?: string;
+  /** Invitation emails; defaults to writing them to the log. */
+  mailer?: InviteMailer;
 }
 
 export function createApp(deps: AppDeps) {
@@ -51,7 +56,16 @@ export function createApp(deps: AppDeps) {
   // Raw body: the signature is computed over the exact bytes LINE sent.
   app.use("/v1/line/webhook", lineWebhook({ pool: deps.pool, channelSecret: notify.lineChannelSecret, accessToken: notify.lineAccessToken }));
   app.use("/v1/ingest", express.json({ limit: "256kb" }), ingestRouter(deps));
-  app.use("/v1", express.json({ limit: "64kb" }), userRouter({ ...deps, channels: notify.channels }));
+  app.use(
+    "/v1",
+    express.json({ limit: "64kb" }),
+    userRouter({
+      ...deps,
+      channels: notify.channels,
+      appUrl: deps.appUrl ?? "http://localhost:5173",
+      mailer: deps.mailer ?? (async (to, subject, text) => log.info("invitation email (dry run)", { to, subject, text })),
+    }),
+  );
 
   // Errors from user input never become 500 (audit 3.12).
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {

@@ -90,3 +90,16 @@ describe("device updates", () => {
     expect(updateDeviceSchema.safeParse({}).success).toBe(false);
   });
 });
+
+import { canAssignRole } from "../src/index";
+
+describe("role changes", () => {
+  it("lets admins manage non-owners and keeps the owner role to owners", () => {
+    expect(canAssignRole("admin", "member", "viewer")).toBe(true);
+    expect(canAssignRole("admin", null, "admin")).toBe(true);
+    expect(canAssignRole("admin", "owner", "admin")).toBe(false);
+    expect(canAssignRole("admin", "member", "owner")).toBe(false);
+    expect(canAssignRole("owner", "member", "owner")).toBe(true);
+    expect(canAssignRole("member", "viewer", null)).toBe(false);
+  });
+});

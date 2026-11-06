@@ -14,7 +14,7 @@ if (config.NODE_ENV === "production" || config.AUTH_MODE !== "dev") {
 
 const pool = createPool(config);
 try {
-  const user = await resolveUser(pool, { uid: "dev-user", email: "dev@dotwatch.local", name: "Dev" });
+  const user = await resolveUser(pool, { uid: "dev-user", email: "dev@dotwatch.local", name: "Dev", emailVerified: true });
   const org = (await listOrganizations(pool, user.id))[0]!;
   const secret = generateDeviceSecret();
   await pool.query(

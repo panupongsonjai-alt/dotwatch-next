@@ -13,6 +13,8 @@ export interface Broadcaster {
   publishDeviceSeen(orgId: string, deviceId: string, lastSeenAt: number): void;
   /** Sent immediately (not batched): alarms must not wait for the next flush. */
   publishAlarm(orgId: string, event: AlarmEvent): void;
+  /** A user's role in an organization changed or ended: drop their subscription if access is gone, and tell them. */
+  membershipChanged(orgId: string, userId: string, stillHasAccess: boolean): void;
 }
 
 const clientMessage = z.discriminatedUnion("type", [
@@ -167,6 +169,13 @@ export function createRealtimeHub(deps: { pool: Pool; verifyToken: TokenVerifier
       const subs = byOrg.get(orgId);
       if (!subs) return;
       for (const s of subs) send(s, { type: "alarm", orgId, event });
+    },
+    membershipChanged(orgId, userId, stillHasAccess) {
+      for (const s of sessions) {
+        if (s.userId !== userId) continue;
+        if (!stillHasAccess) unsubscribe(s, orgId);
+        send(s, { type: "membership", orgId });
+      }
     },
     stats() {
       let subscriptions = 0;

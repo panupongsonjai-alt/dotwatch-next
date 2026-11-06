@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { loadConfig } from "./config";
 import { createPool } from "./db/pool";
 import { createTokenVerifier } from "./auth/userToken";
@@ -27,6 +28,11 @@ const app = createApp({
     channels: { line: channels.line.configured, lineWebhook: config.LINE_CHANNEL_SECRET.length > 0, email: channels.email.configured },
     lineChannelSecret: config.LINE_CHANNEL_SECRET,
     lineAccessToken: config.LINE_CHANNEL_ACCESS_TOKEN,
+  },
+  appUrl: config.APP_URL.replace(/\/$/, ""),
+  mailer: async (to, subject, text) => {
+    if (channels.email.configured) await channels.email.send(to, { subject, text }, randomUUID());
+    else log.info("invitation email (dry run, no credentials)", { to, subject, text });
   },
 });
 

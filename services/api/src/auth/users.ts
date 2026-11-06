@@ -7,6 +7,7 @@ export interface CurrentUser {
   uid: string;
   email: string | null;
   displayName: string | null;
+  emailVerified: boolean;
 }
 
 /**
@@ -19,7 +20,20 @@ export async function resolveUser(pool: Pool, token: VerifiedToken): Promise<Cur
     [token.uid],
   );
   const row = found.rows[0];
-  if (row) return { id: row.id, uid: token.uid, email: row.email, displayName: row.display_name };
+  if (row) {
+    // Keep the stored email in step with Firebase (it is how invitations find people); write only on change.
+    if (token.email && token.email !== row.email) {
+      await pool.query("update users set email = $2 where id = $1", [row.id, token.email]);
+    }
+    // Only an email that came in this token can be "verified"; the stored one is for display.
+    return {
+      id: row.id,
+      uid: token.uid,
+      email: token.email ?? row.email,
+      displayName: row.display_name,
+      emailVerified: token.email !== null && token.emailVerified,
+    };
+  }
 
   return withTransaction(pool, async (client) => {
     const inserted = await client.query<{ id: string }>(
@@ -31,7 +45,7 @@ export async function resolveUser(pool: Pool, token: VerifiedToken): Promise<Cur
     if (!newId) {
       // another request created this user at the same moment
       const again = await client.query<{ id: string }>("select id from users where firebase_uid = $1", [token.uid]);
-      return { id: again.rows[0]!.id, uid: token.uid, email: token.email, displayName: token.name };
+      return { id: again.rows[0]!.id, uid: token.uid, email: token.email, displayName: token.name, emailVerified: token.emailVerified };
     }
     const label = token.name || token.email || "ส่วนตัว";
     const org = await client.query<{ id: string }>(
@@ -39,7 +53,7 @@ export async function resolveUser(pool: Pool, token: VerifiedToken): Promise<Cur
       [label],
     );
     await client.query("insert into memberships (org_id, user_id, role) values ($1, $2, 'owner')", [org.rows[0]!.id, newId]);
-    return { id: newId, uid: token.uid, email: token.email, displayName: token.name };
+    return { id: newId, uid: token.uid, email: token.email, displayName: token.name, emailVerified: token.emailVerified };
   });
 }
 

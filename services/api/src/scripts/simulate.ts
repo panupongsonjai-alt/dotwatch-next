@@ -1,7 +1,8 @@
 // Acts like a board running the new firmware: samples every few seconds, sends batches,
 // keeps unsent readings on network errors, drops readings the server rejected.
 // Usage: npm run simulate -- [--sample 5] [--send 15] [--outage 60]
-import { readFileSync } from "node:fs";
+//        add --api <url> --code <code> --secret <secret> to send as another device (e.g. to production)
+import { existsSync, readFileSync } from "node:fs";
 import type { IngestReading, IngestResponse } from "@dotwatch/shared";
 
 const arg = (name: string, fallback: number) => {
@@ -12,7 +13,22 @@ const sampleSec = arg("sample", 5);
 const sendSec = arg("send", 15);
 const outageSec = arg("outage", 0);
 
-const demo = JSON.parse(readFileSync(".demo-device.json", "utf8")) as { apiUrl: string; code: string; secret: string };
+const text = (name: string) => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > 0 ? process.argv[i + 1] : undefined;
+};
+const file = existsSync(".demo-device.json")
+  ? (JSON.parse(readFileSync(".demo-device.json", "utf8")) as { apiUrl: string; code: string; secret: string })
+  : null;
+const demo = {
+  apiUrl: (text("api") ?? file?.apiUrl ?? "http://localhost:4000").replace(/\/$/, ""),
+  code: text("code") ?? file?.code ?? "",
+  secret: text("secret") ?? file?.secret ?? "",
+};
+if (!demo.code || !demo.secret) {
+  console.error("No device: run `npm run db:seed` first, or pass --code and --secret.");
+  process.exit(1);
+}
 const queue: IngestReading[] = [];
 const started = Date.now();
 let temp = 4;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   can, HISTORY_RANGES, OFFLINE_ALARM_LIMITS, type AlarmEvent, type AlarmRule, type Device, type HistoryRange,
-  type HistoryResponse, type Role,
+  type HistoryResponse, type Organization, type Role,
 } from "@dotwatch/shared";
 import { api } from "../lib/api";
 import { ago, describeMetric, durationText, formatValue, isOffline, orderMetrics } from "../lib/devices";
@@ -19,12 +19,14 @@ interface Props {
   onAck: (id: string) => Promise<void>;
   onUpdated: (d: Device) => void;
   onDeleted: (id: string) => void;
+  /** Organizations this user may move the device into. */
+  moveTargets?: Organization[];
 }
 
 const RANGE_LABEL: Record<HistoryRange, string> = { "6h": "6 ชม.", "24h": "24 ชม.", "7d": "7 วัน", "30d": "30 วัน" };
 const OFFLINE_CHOICES = [5, 10, 15, 30, 60, 120, 360].map((m) => m * 60).filter((s) => s >= OFFLINE_ALARM_LIMITS.minSec);
 
-export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, onDeleted }: Props) {
+export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, onDeleted, moveTargets = [] }: Props) {
   const [range, setRange] = useState<HistoryRange>("24h");
   const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [historyError, setHistoryError] = useState(false);
@@ -178,7 +180,7 @@ export function DeviceView({ device, role, now, openAlarms, onAck, onUpdated, on
         )}
       </section>
 
-      {can(role, "device.update") && <DeviceSettings device={device} role={role} onUpdated={onUpdated} onDeleted={onDeleted} />}
+      {can(role, "device.update") && <DeviceSettings device={device} role={role} onUpdated={onUpdated} onDeleted={onDeleted} moveTargets={moveTargets} />}
 
       {rulesOpen && (
         <AlarmRulesDialog
@@ -229,12 +231,29 @@ function OfflineSetting({ device, canEdit, onUpdated }: { device: Device; canEdi
   );
 }
 
-function DeviceSettings({ device, role, onUpdated, onDeleted }: { device: Device; role: Role | undefined; onUpdated: (d: Device) => void; onDeleted: (id: string) => void }) {
+function DeviceSettings({ device, role, onUpdated, onDeleted, moveTargets }: {
+  device: Device; role: Role | undefined; onUpdated: (d: Device) => void; onDeleted: (id: string) => void; moveTargets: Organization[];
+}) {
+  const [moveTo, setMoveTo] = useState("");
   const [name, setName] = useState(device.name);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [confirmCode, setConfirmCode] = useState("");
-  const [busy, setBusy] = useState<"name" | "secret" | "delete" | null>(null);
+  const [busy, setBusy] = useState<"name" | "secret" | "delete" | "move" | null>(null);
+
+  async function move() {
+    const target = moveTargets.find((o) => o.id === moveTo);
+    if (!target || !window.confirm(`ย้าย ${device.name} ไปที่ "${target.name}"? กฎและประวัติแจ้งเตือนจะย้ายไปด้วย`)) return;
+    setBusy("move");
+    try {
+      await api.moveDevice(device.id, target.id);
+      onDeleted(device.id);
+      window.location.hash = "#/";
+    } catch {
+      setMsg({ ok: false, text: "ย้ายอุปกรณ์ไม่สำเร็จ ต้องเป็นผู้ดูแลทั้งสององค์กร" });
+      setBusy(null);
+    }
+  }
 
   useEffect(() => setName(device.name), [device.name]);
 
@@ -299,6 +318,20 @@ function DeviceSettings({ device, role, onUpdated, onDeleted }: { device: Device
         </div>
       )}
       {secret && <SecretBox code={device.code} secret={secret} />}
+
+      {can(role, "device.delete") && moveTargets.length > 0 && (
+        <div className="danger-row">
+          <div>
+            <strong>ย้ายไปองค์กรอื่น</strong>
+            <p className="hint">กฎแจ้งเตือนและประวัติจะย้ายไปด้วย รหัสลับของบอร์ดใช้ต่อได้</p>
+            <select value={moveTo} onChange={(e) => setMoveTo(e.target.value)} aria-label="องค์กรปลายทาง">
+              <option value="">เลือกองค์กร</option>
+              {moveTargets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+          </div>
+          <button className="secondary" onClick={() => void move()} disabled={busy !== null || !moveTo}>{busy === "move" ? "กำลังย้าย…" : "ย้าย"}</button>
+        </div>
+      )}
 
       {can(role, "device.delete") && (
         <div className="danger-row">

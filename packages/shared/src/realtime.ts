@@ -19,6 +19,8 @@ export type ServerMessage =
   | { type: "values"; orgId: string; values: LiveValue[] }
   | { type: "device_seen"; orgId: string; deviceId: string; lastSeenAt: number }
   | { type: "alarm"; orgId: string; event: AlarmEvent }
+  /** Your role in this organization changed or you were removed: refetch /v1/me. */
+  | { type: "membership"; orgId: string }
   | { type: "error"; code: "unauthorized" | "forbidden" | "bad_message"; message: string };
 
 /** Server flushes batched values at this interval. */

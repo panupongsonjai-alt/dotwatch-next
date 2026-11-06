@@ -8,6 +8,7 @@ import type { Broadcaster } from "../realtime/hub";
 import { alarmRoutes } from "./alarms";
 import { deviceRoutes } from "./devices";
 import { notificationRoutes } from "./notifications";
+import { orgRoutes, pendingInvitationsFor, type InviteMailer } from "./orgs";
 import type { ChannelStatus } from "@dotwatch/shared";
 
 declare module "express-serve-static-core" {
@@ -22,6 +23,8 @@ export function userRouter(deps: {
   pepper: string;
   broadcaster: Broadcaster;
   channels: ChannelStatus;
+  appUrl: string;
+  mailer: InviteMailer;
   now?: () => number;
 }): Router {
   const router = Router();
@@ -40,7 +43,14 @@ export function userRouter(deps: {
   router.get("/me", async (req, res, next) => {
     try {
       const u = req.user!;
-      const me: Me = { id: u.id, email: u.email, displayName: u.displayName, organizations: await listOrganizations(deps.pool, u.id) };
+      const me: Me = {
+        id: u.id,
+        email: u.email,
+        displayName: u.displayName,
+        emailVerified: u.emailVerified,
+        organizations: await listOrganizations(deps.pool, u.id),
+        invitations: await pendingInvitationsFor(deps.pool, u.email),
+      };
       res.json(me);
     } catch (err) {
       next(err);
@@ -50,6 +60,7 @@ export function userRouter(deps: {
   router.use(deviceRoutes(deps));
   router.use(alarmRoutes(deps));
   router.use(notificationRoutes(deps));
+  router.use(orgRoutes(deps));
 
   router.use((_req, _res, next) => next(new HttpError(404, "not_found", "No such endpoint.")));
   return router;

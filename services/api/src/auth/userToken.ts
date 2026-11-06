@@ -5,21 +5,22 @@ export interface VerifiedToken {
   uid: string;
   email: string | null;
   name: string | null;
+  emailVerified: boolean;
 }
 
 export type TokenVerifier = (token: string) => Promise<VerifiedToken>;
 
-/** dev tokens look like `dev:<uid>` or `dev:<uid>:<email>`; only allowed outside production (see config). */
+/** dev tokens look like `dev:<uid>` or `dev:<uid>:<email>` (email counts as verified); refused in production (see config). */
 function devVerifier(): TokenVerifier {
   return async (token) => {
     const [prefix, uid, email] = token.split(":");
     if (prefix !== "dev" || !uid) throw unauthorized("Use a dev token like dev:alice.");
-    return { uid, email: email ?? null, name: uid };
+    return { uid, email: email?.toLowerCase() ?? null, name: uid, emailVerified: Boolean(email) };
   };
 }
 
 function firebaseVerifier(projectId: string): TokenVerifier {
-  let verify: ((t: string) => Promise<{ uid: string; email?: string; name?: string }>) | null = null;
+  let verify: ((t: string) => Promise<{ uid: string; email?: string; name?: string; email_verified?: boolean }>) | null = null;
   return async (token) => {
     if (!verify) {
       const { initializeApp, getApps } = await import("firebase-admin/app");
@@ -30,7 +31,12 @@ function firebaseVerifier(projectId: string): TokenVerifier {
     }
     try {
       const decoded = await verify(token);
-      return { uid: decoded.uid, email: decoded.email ?? null, name: decoded.name ?? null };
+      return {
+        uid: decoded.uid,
+        email: decoded.email?.toLowerCase() ?? null,
+        name: decoded.name ?? null,
+        emailVerified: Boolean(decoded.email) && decoded.email_verified === true,
+      };
     } catch {
       throw unauthorized();
     }

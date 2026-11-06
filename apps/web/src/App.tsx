@@ -5,13 +5,15 @@ import { onAuthChange, signOut } from "./lib/auth";
 import { realtime, type LinkState } from "./lib/realtime";
 import { devicesReducer } from "./lib/devices";
 import { alarmsReducer, sortAlarms, worstByDevice } from "./lib/alarms";
-import { NOTIFICATIONS_HREF, useRoute } from "./lib/route";
+import { NOTIFICATIONS_HREF, ORG_HREF, useRoute } from "./lib/route";
 import { SignIn } from "./components/SignIn";
 import { DevicePanel } from "./components/DevicePanel";
 import { AlarmStrip } from "./components/AlarmStrip";
 import { DeviceView } from "./components/DeviceView";
 import { AddDeviceDialog } from "./components/AddDeviceDialog";
 import { NotificationsPage } from "./components/NotificationsPage";
+import { OrgPage } from "./components/OrgPage";
+import { Invitations } from "./components/Invitations";
 import { useNow } from "./components/useNow";
 
 export function App() {
@@ -35,11 +37,12 @@ function Monitor() {
   const now = useNow(1000);
   const route = useRoute();
 
-  useEffect(() => {
+  const loadMe = useCallback(() => {
     api.me().then(
       (m) => {
         setMe(m);
-        setOrgId((cur) => cur ?? m.organizations[0]?.id ?? null);
+        // Keep the selected organization unless the user lost access to it.
+        setOrgId((cur) => (cur && m.organizations.some((o) => o.id === cur) ? cur : (m.organizations[0]?.id ?? null)));
       },
       (err) => {
         if (err instanceof ApiError && err.status === 401) void signOut();
@@ -47,6 +50,7 @@ function Monitor() {
       },
     );
   }, []);
+  useEffect(loadMe, [loadMe]);
 
   const loadDevices = useCallback(() => {
     if (!orgId) return;
@@ -83,13 +87,14 @@ function Monitor() {
       if (msg.type === "values") dispatch({ type: "values", values: msg.values });
       if (msg.type === "device_seen") dispatch({ type: "seen", deviceId: msg.deviceId, lastSeenAt: msg.lastSeenAt });
       if (msg.type === "alarm" && msg.orgId === orgIdRef.current) dispatchAlarm({ type: "event", event: msg.event });
+      if (msg.type === "membership") loadMe();
     });
     return () => {
       offState();
       offMsg();
       realtime.stop();
     };
-  }, []);
+  }, [loadMe]);
 
   useEffect(() => realtime.onResync(loadDevices), [loadDevices]);
   useEffect(() => realtime.onResync(loadAlarms), [loadAlarms]);
@@ -110,6 +115,14 @@ function Monitor() {
   }, []);
   const upsert = useCallback((device: Device) => dispatch({ type: "upsert", device }), []);
   const remove = useCallback((deviceId: string) => dispatch({ type: "remove", deviceId }), []);
+  const switchOrg = useCallback((id: string) => {
+    setOrgId(id);
+    window.location.hash = "#/";
+  }, []);
+  const moveTargets = useMemo(
+    () => (me?.organizations ?? []).filter((o) => o.id !== orgId && can(o.role, "device.create")),
+    [me, orgId],
+  );
 
   const current = route.name === "device" ? devices[route.id] : undefined;
 
@@ -121,10 +134,7 @@ function Monitor() {
           <select
             className="org"
             value={orgId ?? ""}
-            onChange={(e) => {
-              setOrgId(e.target.value);
-              window.location.hash = "#/";
-            }}
+            onChange={(e) => switchOrg(e.target.value)}
             aria-label="องค์กร"
           >
             {me.organizations.map((o) => (
@@ -136,13 +146,16 @@ function Monitor() {
         )}
         <LinkStatus state={link} />
         {can(org?.role, "notify.manage") && <a className="quiet nav" href={NOTIFICATIONS_HREF}>การแจ้งเตือน</a>}
+        {org && <a className="quiet nav" href={ORG_HREF}>องค์กร</a>}
         <button className="quiet" onClick={() => void signOut()}>ออกจากระบบ</button>
       </header>
 
       <main>
         {loadError && <p className="notice" role="alert">{loadError}</p>}
 
-        {route.name === "notifications" ? (
+        {route.name === "org" ? (
+          me && org && <OrgPage key={org.id} me={me} org={org} onChanged={loadMe} onSwitch={switchOrg} />
+        ) : route.name === "notifications" ? (
           orgId && org && <NotificationsPage key={orgId} orgId={orgId} orgName={org.name} now={now} />
         ) : route.name === "device" ? (
           current ? (
@@ -155,6 +168,7 @@ function Monitor() {
               onAck={ack}
               onUpdated={upsert}
               onDeleted={remove}
+              moveTargets={moveTargets}
             />
           ) : (
             devicesLoaded && (
@@ -166,6 +180,7 @@ function Monitor() {
           )
         ) : (
           <>
+            {me && <Invitations me={me} onJoined={(id) => { loadMe(); switchOrg(id); }} onChanged={loadMe} />}
             <AlarmStrip events={alarmList} devices={devices} now={now} canAck={can(org?.role, "alarm.ack")} onAck={ack} />
             <div className="section-head">
               <h1 className="page-title">อุปกรณ์ {devicesLoaded && <span className="count-muted">{list.length}</span>}</h1>

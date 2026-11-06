@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import {
-  can, createDeviceSchema, historyQuerySchema, pickBucketMs, updateDeviceSchema,
+  can, createDeviceSchema, historyQuerySchema, moveDeviceSchema, pickBucketMs, updateDeviceSchema,
   type CreateDeviceResponse, type Device, type HistoryPoint, type HistoryResponse, type MetricValue, type ResetSecretResponse,
 } from "@dotwatch/shared";
 import type { Pool } from "../db/pool";
 import { roleInOrg } from "../auth/users";
 import { deviceAccess } from "../auth/deviceAccess";
 import { generateDeviceCode, generateDeviceSecret, hashDeviceSecret } from "../auth/deviceSecret";
-import { forbidden } from "../lib/errors";
+import { forbidden, notFound } from "../lib/errors";
+import { withTransaction } from "../db/pool";
 import type { Broadcaster } from "../realtime/hub";
 import { closeDeviceEvents } from "../alarms/store";
 
@@ -134,6 +135,30 @@ export function deviceRoutes(deps: { pool: Pool; pepper: string; broadcaster: Br
       await deps.pool.query("update devices set deleted_at = now() where id = $1 and deleted_at is null", [id]);
       for (const e of await closeDeviceEvents(deps.pool, id, now())) deps.broadcaster.publishAlarm(orgId, e);
       res.status(204).end();
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Moving a device carries its rules and alarm history with it; open alarms follow the new organization.
+  router.post("/devices/:id/move", async (req, res, next) => {
+    try {
+      const id = idParam.parse(req.params.id);
+      const { orgId: from, role } = await deviceAccess(deps.pool, req.user!.id, id);
+      const { orgId: to } = moveDeviceSchema.parse(req.body);
+      const target = await roleInOrg(deps.pool, req.user!.id, to);
+      if (!target) throw notFound("Organization not found.");
+      if (!can(role, "device.delete") || !can(target, "device.create")) {
+        throw forbidden("Moving a device needs admin rights in both organizations.");
+      }
+      if (from !== to) {
+        await withTransaction(deps.pool, async (c) => {
+          await c.query("update devices set org_id = $2 where id = $1", [id, to]);
+          await c.query("update alarm_rules set org_id = $2 where device_id = $1", [id, to]);
+          await c.query("update alarm_events set org_id = $2 where device_id = $1", [id, to]);
+        });
+      }
+      res.json({ device: await loadDevice(id) });
     } catch (err) {
       next(err);
     }

@@ -81,9 +81,9 @@ test ของ API ใช้ PostgreSQL จริง ในฐานข้อม
 | Slice 1 | ingest → `readings`/`latest` → WebSocket → การ์ดบนเว็บ | เสร็จ |
 | Alarm | กฎช่วงปกติ + delay + hysteresis, รับทราบ, หน้าแจ้งเตือนบนเว็บ | เสร็จ |
 | ชุดที่ 1 | หน้าอุปกรณ์ + กราฟย้อนหลัง, จัดการอุปกรณ์, แจ้งเตือนขาดการติดต่อ | เสร็จ |
-| ชุดที่ 2 | ส่งแจ้งเตือน LINE OA / email / push, แจ้งซ้ำจนรับทราบ | ถัดไป |
-| ชุดที่ 3 | จัดการองค์กรและสมาชิก, Firebase login จริง, deploy (Render + Tiger Cloud) | |
-| ชุดที่ 4 | สคริปต์ย้ายข้อมูลจากระบบเก่า (ซ้อม 2 รอบ), continuous aggregate + compression/retention | |
+| ชุดที่ 2 | ส่งแจ้งเตือน LINE OA / email, แจ้งซ้ำจนรับทราบ | เสร็จ |
+| ชุดที่ 3 | จัดการองค์กรและสมาชิก, Firebase login จริง, deploy (Render + Tiger Cloud) | เสร็จ ([วิธีขึ้นระบบ](docs/DEPLOY.md)) |
+| ชุดที่ 4 | สคริปต์ย้ายข้อมูลจากระบบเก่า (ซ้อม 2 รอบ), continuous aggregate + compression/retention | ถัดไป |
 | ชุดที่ 5 | Mobile, Pi agent, OTA, firmware บนบอร์ดจริง แล้ว cutover | |
 
 ช่องทางส่งคำสั่งกลับไปที่อุปกรณ์ (`commands` ใน response ของ ingest) มีอยู่ในสัญญาแล้ว แต่ตอนนี้ยังส่งกลับเป็นรายการว่าง
@@ -128,3 +128,22 @@ about 360 points (1 min buckets for 6 h up to 6 h buckets). Each point has `avg`
 `backfilled`. It reads `readings` directly through its primary key; continuous aggregates come with batch 4.
 
 The web app has two screens addressed by the URL hash: `#/` (all devices) and `#/devices/<id>`.
+
+## Organizations and members
+
+| Method | Path | Who |
+|---|---|---|
+| POST | `/v1/orgs` `{ name }` | anyone (becomes owner) |
+| PATCH / DELETE | `/v1/orgs/:orgId` | rename: admin+, delete: owner (not personal, no live devices) |
+| GET | `/v1/orgs/:orgId/members` | members (invitations only for admin+) |
+| POST | `/v1/orgs/:orgId/invitations` `{ email, role }` | admin+ (owner role: owners only) |
+| POST | `/v1/invitations/:id/accept` | the invited email, verified |
+| DELETE | `/v1/invitations/:id` | admin+ (revoke) or the invitee (decline) |
+| PATCH / DELETE | `/v1/orgs/:orgId/members/:userId` | admin+; owners only for owners; anyone can leave; the last owner stays |
+| POST | `/v1/devices/:id/move` `{ orgId }` | admin+ in both organizations |
+
+`/v1/me` also returns `emailVerified` and pending `invitations`. When someone's role changes or they are removed,
+their open sockets get `{ type: "membership", orgId }` and lose the subscription at once.
+In dev mode, sign in as `name:email` to get a token with a verified email.
+
+Deploy: [`render.yaml`](render.yaml) and [`docs/DEPLOY.md`](docs/DEPLOY.md).
