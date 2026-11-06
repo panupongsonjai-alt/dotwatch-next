@@ -42,6 +42,8 @@ export async function resetDatabase() {
   await pool.end();
 }
 
+export const LINE_SECRET = "test-line-secret";
+
 export async function startTestServer(opts: { poolMax?: number; now?: () => number } = {}): Promise<TestEnv> {
   const pool = createPool({
     DATABASE_URL: process.env.TEST_DATABASE_URL!,
@@ -51,7 +53,8 @@ export async function startTestServer(opts: { poolMax?: number; now?: () => numb
   });
   const verifyToken = createTokenVerifier({ AUTH_MODE: "dev", FIREBASE_PROJECT_ID: "" });
   const hub = createRealtimeHub({ pool, verifyToken });
-  const app = createApp({ pool, verifyToken, broadcaster: hub, pepper: PEPPER, corsOrigins: [], now: opts.now });
+  const app = createApp({ pool, verifyToken, broadcaster: hub, pepper: PEPPER, corsOrigins: [], now: opts.now,
+    notify: { channels: { line: true, lineWebhook: true, email: false }, lineChannelSecret: LINE_SECRET, lineAccessToken: "" } });
   const server: Server = createServer(app);
   hub.attach(server);
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));

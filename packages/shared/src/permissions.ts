@@ -14,6 +14,7 @@ export const ACTIONS = [
   "alarm.edit",
   "alarm.ack",
   "org.manage_members",
+  "notify.manage",
   "org.delete",
 ] as const;
 export type Action = (typeof ACTIONS)[number];
@@ -27,6 +28,7 @@ const MIN_ROLE: Record<Action, Role> = {
   "device.delete": "admin",
   "device.reset_secret": "admin",
   "org.manage_members": "admin",
+  "notify.manage": "admin",
   "org.delete": "owner",
 };
 

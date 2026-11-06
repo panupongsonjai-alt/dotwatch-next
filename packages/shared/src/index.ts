@@ -5,3 +5,4 @@ export * from "./api";
 export * from "./alarms";
 export * from "./history";
 export * from "./devices";
+export * from "./notifications";

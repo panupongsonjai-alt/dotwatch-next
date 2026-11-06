@@ -5,12 +5,13 @@ import { onAuthChange, signOut } from "./lib/auth";
 import { realtime, type LinkState } from "./lib/realtime";
 import { devicesReducer } from "./lib/devices";
 import { alarmsReducer, sortAlarms, worstByDevice } from "./lib/alarms";
-import { useRoute } from "./lib/route";
+import { NOTIFICATIONS_HREF, useRoute } from "./lib/route";
 import { SignIn } from "./components/SignIn";
 import { DevicePanel } from "./components/DevicePanel";
 import { AlarmStrip } from "./components/AlarmStrip";
 import { DeviceView } from "./components/DeviceView";
 import { AddDeviceDialog } from "./components/AddDeviceDialog";
+import { NotificationsPage } from "./components/NotificationsPage";
 import { useNow } from "./components/useNow";
 
 export function App() {
@@ -134,13 +135,16 @@ function Monitor() {
           <div className="org-name">{org?.name}</div>
         )}
         <LinkStatus state={link} />
+        {can(org?.role, "notify.manage") && <a className="quiet nav" href={NOTIFICATIONS_HREF}>การแจ้งเตือน</a>}
         <button className="quiet" onClick={() => void signOut()}>ออกจากระบบ</button>
       </header>
 
       <main>
         {loadError && <p className="notice" role="alert">{loadError}</p>}
 
-        {route.name === "device" ? (
+        {route.name === "notifications" ? (
+          orgId && org && <NotificationsPage key={orgId} orgId={orgId} orgName={org.name} now={now} />
+        ) : route.name === "device" ? (
           current ? (
             <DeviceView
               key={current.id}

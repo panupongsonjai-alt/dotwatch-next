@@ -18,6 +18,14 @@ const schema = z
     DB_CONNECTION_TIMEOUT_MS: z.coerce.number().int().default(10_000),
     DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().default(30_000),
     REQUIRE_TIMESCALE: bool.default("false"),
+    // Notifications (batch 2). Empty keys = dry run: messages go to the log.
+    APP_URL: z.string().url().default("http://localhost:5173"),
+    APP_TIMEZONE: z.string().default("Asia/Bangkok"),
+    LINE_CHANNEL_ACCESS_TOKEN: z.string().default(""),
+    LINE_CHANNEL_SECRET: z.string().default(""),
+    RESEND_API_KEY: z.string().default(""),
+    EMAIL_FROM: z.string().default(""),
+    NOTIFY_INTERVAL_MS: z.coerce.number().int().min(1000).default(5000),
   })
   .superRefine((c, ctx) => {
     if (c.NODE_ENV === "production" && c.AUTH_MODE === "dev")

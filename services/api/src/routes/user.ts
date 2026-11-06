@@ -7,6 +7,8 @@ import { HttpError, unauthorized } from "../lib/errors";
 import type { Broadcaster } from "../realtime/hub";
 import { alarmRoutes } from "./alarms";
 import { deviceRoutes } from "./devices";
+import { notificationRoutes } from "./notifications";
+import type { ChannelStatus } from "@dotwatch/shared";
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -14,7 +16,14 @@ declare module "express-serve-static-core" {
   }
 }
 
-export function userRouter(deps: { pool: Pool; verifyToken: TokenVerifier; pepper: string; broadcaster: Broadcaster; now?: () => number }): Router {
+export function userRouter(deps: {
+  pool: Pool;
+  verifyToken: TokenVerifier;
+  pepper: string;
+  broadcaster: Broadcaster;
+  channels: ChannelStatus;
+  now?: () => number;
+}): Router {
   const router = Router();
 
   router.use(async (req: Request, _res: Response, next: NextFunction) => {
@@ -40,6 +49,7 @@ export function userRouter(deps: { pool: Pool; verifyToken: TokenVerifier; peppe
 
   router.use(deviceRoutes(deps));
   router.use(alarmRoutes(deps));
+  router.use(notificationRoutes(deps));
 
   router.use((_req, _res, next) => next(new HttpError(404, "not_found", "No such endpoint.")));
   return router;

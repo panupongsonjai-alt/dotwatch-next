@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 
-/** Two screens, addressed by the URL hash so the back button and bookmarks work without a router. */
-export type Route = { name: "overview" } | { name: "device"; id: string };
+/** Screens, addressed by the URL hash so the back button and bookmarks work without a router. */
+export type Route = { name: "overview" } | { name: "device"; id: string } | { name: "notifications" };
+
+export const NOTIFICATIONS_HREF = "#/settings/notifications";
 
 export function parseRoute(hash: string): Route {
+  if (hash === NOTIFICATIONS_HREF) return { name: "notifications" };
   const m = /^#\/devices\/([0-9a-f-]{36})$/i.exec(hash);
   return m ? { name: "device", id: m[1]!.toLowerCase() } : { name: "overview" };
 }

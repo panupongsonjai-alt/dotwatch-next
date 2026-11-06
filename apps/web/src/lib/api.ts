@@ -1,6 +1,7 @@
 import type {
   AlarmEvent, AlarmRule, AlarmRuleInput, CreateDeviceInput, CreateDeviceResponse, Device, HistoryResponse, Me,
-  ResetSecretResponse, UpdateDeviceInput,
+  ResetSecretResponse, UpdateDeviceInput, CreateTargetInput, NotificationSettings, NotificationTarget,
+  NotificationsResponse, UpdateTargetInput,
 } from "@dotwatch/shared";
 import { getToken } from "./auth";
 
@@ -47,5 +48,21 @@ export const api = {
     request<HistoryResponse>(
       `/v1/devices/${encodeURIComponent(id)}/history?metrics=${encodeURIComponent(metrics.join(","))}&from=${from}&to=${to}`,
     ),
+  notifications: (orgId: string) => request<NotificationsResponse>(`/v1/orgs/${encodeURIComponent(orgId)}/notifications`),
+  saveNotifySettings: (orgId: string, settings: NotificationSettings) =>
+    request<{ settings: NotificationSettings }>(`/v1/orgs/${encodeURIComponent(orgId)}/notifications/settings`, {
+      method: "PUT",
+      body: JSON.stringify(settings),
+    }),
+  addTarget: (orgId: string, input: CreateTargetInput) =>
+    request<{ target: NotificationTarget }>(`/v1/orgs/${encodeURIComponent(orgId)}/notification-targets`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateTarget: (id: string, input: UpdateTargetInput) =>
+    request<{ target: NotificationTarget }>(`/v1/notification-targets/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(input) }),
+  deleteTarget: (id: string) => request<null>(`/v1/notification-targets/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  newLinkCode: (id: string) => request<{ target: NotificationTarget }>(`/v1/notification-targets/${encodeURIComponent(id)}/link-code`, { method: "POST" }),
+  testTarget: (id: string) => request<{ queued: boolean }>(`/v1/notification-targets/${encodeURIComponent(id)}/test`, { method: "POST" }),
   ackAlarm: (id: string) => request<{ event: AlarmEvent }>(`/v1/alarms/${encodeURIComponent(id)}/ack`, { method: "POST" }),
 };

@@ -5,6 +5,8 @@ import type { TokenVerifier } from "./auth/userToken";
 import type { Broadcaster } from "./realtime/hub";
 import { ingestRouter } from "./routes/ingest";
 import { userRouter } from "./routes/user";
+import { lineWebhook } from "./notify/lineWebhook";
+import type { ChannelStatus } from "@dotwatch/shared";
 import { HttpError } from "./lib/errors";
 import { log } from "./lib/log";
 
@@ -15,6 +17,8 @@ export interface AppDeps {
   pepper: string;
   corsOrigins: string[];
   now?: () => number;
+  /** What the notification channels can do; secrets for the LINE webhook. */
+  notify?: { channels: ChannelStatus; lineChannelSecret: string; lineAccessToken: string };
 }
 
 export function createApp(deps: AppDeps) {
@@ -43,8 +47,11 @@ export function createApp(deps: AppDeps) {
     }
   });
 
+  const notify = deps.notify ?? { channels: { line: false, lineWebhook: false, email: false }, lineChannelSecret: "", lineAccessToken: "" };
+  // Raw body: the signature is computed over the exact bytes LINE sent.
+  app.use("/v1/line/webhook", lineWebhook({ pool: deps.pool, channelSecret: notify.lineChannelSecret, accessToken: notify.lineAccessToken }));
   app.use("/v1/ingest", express.json({ limit: "256kb" }), ingestRouter(deps));
-  app.use("/v1", express.json({ limit: "64kb" }), userRouter(deps));
+  app.use("/v1", express.json({ limit: "64kb" }), userRouter({ ...deps, channels: notify.channels }));
 
   // Errors from user input never become 500 (audit 3.12).
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
