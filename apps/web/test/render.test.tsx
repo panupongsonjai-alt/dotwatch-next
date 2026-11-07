@@ -62,3 +62,12 @@ describe("organization screens", () => {
     expect(html).toContain("เชิญด้วยอีเมล");
   });
 });
+
+import { SignIn } from "../src/components/SignIn";
+describe("sign in", () => {
+  it("shows the dotWatch brand and the old headline", () => {
+    const html = renderToStaticMarkup(<SignIn />);
+    expect(html).toContain('<span class="logo" aria-hidden="true"></span><strong>dotWatch</strong>');
+    expect(html).toContain("<h1>IoT Easy Monitoring</h1>");
+  });
+});

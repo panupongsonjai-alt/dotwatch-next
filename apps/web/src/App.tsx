@@ -129,7 +129,7 @@ function Monitor() {
   return (
     <div className="shell">
       <header className="bar">
-        <a className="brand" href="#/">dotWatch</a>
+        <a className="brand" href="#/"><span className="logo" aria-hidden="true" />dotWatch</a>
         {me && me.organizations.length > 1 ? (
           <select
             className="org"

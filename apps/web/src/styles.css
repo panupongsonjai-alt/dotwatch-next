@@ -49,8 +49,8 @@ code { font-size: 0.9em; background: var(--line); padding: 0.05em 0.35em; border
   border-bottom: 1px solid var(--line);
   background: var(--surface);
 }
-.brand { font-weight: 600; letter-spacing: -0.01em; }
-.brand-lg { font-size: 1.75rem; margin-bottom: 1rem; }
+.brand { font-weight: 700; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 0.6rem; }
+.brand .logo { width: 28px; height: 28px; border-radius: 9px; }
 .org, .org-name { color: var(--muted); }
 .org { background: transparent; border: 1px solid var(--line); border-radius: var(--radius); padding: 0.25rem 0.5rem; }
 .link { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; font-size: 0.875rem; color: var(--muted); }
@@ -229,7 +229,6 @@ main { padding: clamp(1rem, 4vw, 2.5rem); }
 .invites .notice { margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .invite { background: var(--surface); border-left: 4px solid var(--live); border-radius: 0 var(--radius) var(--radius) 0; padding: 0.75rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .invite p { margin: 0; }
-.signin-title { font-size: 1.125rem; font-weight: 600; margin: -0.5rem 0 0; }
 .signin-links { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0; }
 .signin .link-button { background: none; color: var(--live); padding: 0; font-weight: 400; }
 .signin .link-button:hover { text-decoration: underline; }
@@ -310,11 +309,34 @@ main { padding: clamp(1rem, 4vw, 2.5rem); }
 .secret dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 
 /* sign in */
-.signin { min-height: 100vh; display: grid; place-items: center; }
-.signin form { width: min(22rem, 100%); display: flex; flex-direction: column; gap: 1rem; }
-.signin label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9375rem; }
-.signin input { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0.55rem 0.75rem; }
-.signin button { background: var(--live); color: #fff; border: 0; border-radius: var(--radius); padding: 0.6rem; font-weight: 500; cursor: pointer; }
+/* sign in: the old dotWatch look — red logo with a white dot, "IoT Easy Monitoring" */
+.signin {
+  min-height: 100vh; display: grid; place-items: center; padding: 1.5rem;
+  background:
+    radial-gradient(circle at 20% 10%, rgb(37 99 235 / 0.16), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgb(239 68 68 / 0.12), transparent 28%),
+    var(--paper);
+}
+.signin-card {
+  width: min(27.5rem, 100%); padding: 2rem; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 28px; box-shadow: 0 28px 70px rgb(15 23 42 / 0.14);
+}
+.signin-brand {
+  height: 58px; padding: 0.625rem 1rem; display: flex; align-items: center; gap: 0.875rem;
+  border: 1px solid var(--line); border-radius: 16px; background: var(--paper);
+}
+.signin-brand strong { font-size: 1.0625rem; font-weight: 700; }
+.logo {
+  width: 38px; height: 38px; flex: none; border-radius: 12px; display: inline-block;
+  background: radial-gradient(circle at 30% 30%, #fff 0 8%, transparent 9%), linear-gradient(135deg, #ef4444, #991b1b);
+}
+.signin h1 { font-size: clamp(1.75rem, 6vw, 2.125rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; margin: 1.5rem 0 0.35rem; }
+.signin-sub { color: var(--muted); margin: 0 0 1.5rem; }
+.signin form { display: flex; flex-direction: column; gap: 1rem; }
+.signin label { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.9375rem; font-weight: 500; }
+.signin input { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 0.7rem 0.9rem; }
+.signin input:focus { border-color: var(--live); outline: none; box-shadow: 0 0 0 3px rgb(47 111 222 / 0.2); }
+.signin button { background: var(--live); color: #fff; border: 0; border-radius: 12px; padding: 0.75rem; font-weight: 600; cursor: pointer; }
 .signin button:disabled { opacity: 0.6; cursor: progress; }
 .hint { font-size: 0.8125rem; color: var(--muted); margin: 0; }
 

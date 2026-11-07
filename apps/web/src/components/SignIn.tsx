@@ -37,50 +37,65 @@ export function SignIn() {
     setInfo(null);
   };
 
+  const heading =
+    mode === "signin"
+      ? { title: "IoT Easy Monitoring", sub: dev ? "โหมดพัฒนา: ใส่ชื่อใดก็ได้เพื่อเข้าใช้งาน" : "Sign in to monitor your IoT devices." }
+      : mode === "signup"
+        ? { title: "Create account", sub: "Create an account to start using dotWatch." }
+        : { title: "Reset password", sub: "Enter your email to receive a reset link." };
+
   return (
     <main className="signin">
-      <form onSubmit={submit}>
-        <div className="brand brand-lg">dotWatch</div>
-        {!dev && <h1 className="signin-title">{mode === "signin" ? "เข้าสู่ระบบ" : mode === "signup" ? "สร้างบัญชี" : "ลืมรหัสผ่าน"}</h1>}
-        <label>
-          {dev ? "ชื่อผู้ใช้ (โหมดพัฒนา)" : "อีเมล"}
-          <input
-            value={identity}
-            onChange={(e) => setIdentity(e.target.value)}
-            autoComplete={dev ? "username" : "email"}
-            type={dev ? "text" : "email"}
-            required
-          />
-        </label>
-        {!dev && mode !== "reset" && (
+      <div className="signin-card">
+        <div className="signin-brand">
+          <span className="logo" aria-hidden="true" />
+          <strong>dotWatch</strong>
+        </div>
+        <h1>{heading.title}</h1>
+        <p className="signin-sub">{heading.sub}</p>
+        <form onSubmit={submit}>
           <label>
-            รหัสผ่าน
+            {dev ? "ชื่อผู้ใช้" : "อีเมล"}
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              minLength={6}
+              value={identity}
+              onChange={(e) => setIdentity(e.target.value)}
+              autoComplete={dev ? "username" : "email"}
+              type={dev ? "text" : "email"}
+              placeholder={dev ? "dev-user" : "you@example.com"}
               required
             />
           </label>
-        )}
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {info && <p className="hint" role="status">{info}</p>}
-        <button disabled={busy}>
-          {busy ? "กำลังดำเนินการ…" : mode === "signin" ? "เข้าสู่ระบบ" : mode === "signup" ? "สร้างบัญชี" : "ส่งลิงก์ตั้งรหัสผ่านใหม่"}
-        </button>
-        {dev ? (
-          <p className="hint">ใส่ชื่อใดก็ได้ ถ้าจะทดสอบคำเชิญให้ใส่ <code>ชื่อ:อีเมล</code> เช่น <code>mike:mike@example.com</code></p>
-        ) : (
-          <p className="signin-links">
-            {mode !== "signin" && <button type="button" className="link-button" onClick={() => switchTo("signin")}>เข้าสู่ระบบ</button>}
-            {mode !== "signup" && <button type="button" className="link-button" onClick={() => switchTo("signup")}>สร้างบัญชีใหม่</button>}
-            {mode !== "reset" && <button type="button" className="link-button" onClick={() => switchTo("reset")}>ลืมรหัสผ่าน</button>}
-          </p>
-        )}
-        {!dev && mode === "signin" && <p className="hint">ผู้ใช้ระบบเดิมใช้อีเมลและรหัสผ่านเดิมได้เลย</p>}
-      </form>
+          {!dev && mode !== "reset" && (
+            <label>
+              รหัสผ่าน
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                placeholder={mode === "signup" ? "อย่างน้อย 6 ตัวอักษร" : "รหัสผ่านของคุณ"}
+                minLength={6}
+                required
+              />
+            </label>
+          )}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          {info && <p className="hint" role="status">{info}</p>}
+          <button disabled={busy}>
+            {busy ? "กำลังดำเนินการ…" : mode === "signin" ? "เข้าสู่ระบบ" : mode === "signup" ? "สร้างบัญชี" : "ส่งลิงก์ตั้งรหัสผ่านใหม่"}
+          </button>
+          {dev ? (
+            <p className="hint">ใส่ชื่อใดก็ได้ ถ้าจะทดสอบคำเชิญให้ใส่ <code>ชื่อ:อีเมล</code> เช่น <code>mike:mike@example.com</code></p>
+          ) : (
+            <p className="signin-links">
+              {mode !== "signin" && <button type="button" className="link-button" onClick={() => switchTo("signin")}>เข้าสู่ระบบ</button>}
+              {mode !== "signup" && <button type="button" className="link-button" onClick={() => switchTo("signup")}>สร้างบัญชีใหม่</button>}
+              {mode !== "reset" && <button type="button" className="link-button" onClick={() => switchTo("reset")}>ลืมรหัสผ่าน</button>}
+            </p>
+          )}
+          {!dev && mode === "signin" && <p className="hint">ผู้ใช้ระบบเดิมใช้อีเมลและรหัสผ่านเดิมได้เลย</p>}
+        </form>
+      </div>
     </main>
   );
 }
